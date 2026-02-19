@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Practice - Step by Step</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+        
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            background: #f7fafc;
+        }
+        
+        .mode-btn {
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .mode-btn:not(.active) {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .practice-area {
+            padding: 30px;
+        }
+        
+        .problem-display {
+            background: #f7fafc;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .problem {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        
+        .steps-container {
+            min-height: 200px;
+        }
+        
+        .step {
+            background: #edf2f7;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            font-size: 1.5rem;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideIn 0.5s forwards;
+        }
+        
+        .step.correct {
+            background: #c6f6d5;
+            border-left: 5px solid #48bb78;
+        }
+        
+        .step.incorrect {
+            background: #fed7d7;
+            border-left: 5px solid #f56565;
+        }
+        
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .answer-input {
+            padding: 15px 20px;
+            font-size: 1.5rem;
+            border: 3px solid #e2e8f0;
+            border-radius: 10px;
+            width: 150px;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+        
+        .answer-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .submit-btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .submit-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .feedback {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .feedback.correct {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .feedback.incorrect {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .next-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .score {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #718096;
+            padding: 10px;
+        }
+        
+        .animation-area {
+            background: #1a202c;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            min-height: 250px;
+            color: white;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .animation-step {
+            font-size: 2rem;
+            margin: 15px 0;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        
+        .show-animation-btn {
+            display: block;
+            margin: 10px auto;
+            padding: 12px 25px;
+            font-size: 1rem;
+            background: #ed8936;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .difficulty-selector {
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        .difficulty-selector label {
+            font-size: 1.1rem;
+            margin-right: 10px;
+        }
+        
+        .difficulty-selector select {
+            padding: 8px 15px;
+            font-size: 1rem;
+            border-radius: 5px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .hint-text {
+            text-align: center;
+            color: #718096;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔢 Math Practice</h1>
+            <p>Learn step by step!</p>
+        </div>
+        
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('decimal')">➕➖ Decimals</button>
+            <button class="mode-btn" onclick="setMode('multiply')">✖️ Multiplication</button>
+        </div>
+        
+        <div class="practice-area">
+            <div class="difficulty-selector">
+                <label>Difficulty:</label>
+                <select id="difficulty">
+                    <option value="easy">Easy</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+            
+            <div class="problem-display">
+                <div class="problem" id="problem">12.5 + 3.25 = ?</div>
+                <p class="hint-text" id="hint">Enter your answer below</p>
+            </div>
+            
+            <button class="show-animation-btn" onclick="showAnimation()">👁️ Watch How to Solve</button>
+            
+            <div class="animation-area" id="animationArea"></div>
+            
+            <div class="input-area">
+                <input type="text" class="answer-input" id="answerInput" placeholder="?">
+                <button class="submit-btn" onclick="checkAnswer()">Check ✅</button>
+            </div>
+            
+            <div class="feedback" id="feedback" style="display: none;"></div>
+            
+            <button class="next-btn" id="nextBtn" style="display: none;" onclick="generateProblem()">Next Problem ➡️</button>
+            
+            <div class="score" id="score">Score: 0 / 0</div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'decimal';
+        let currentProblem = {};
+        let score = { correct: 0, total: 0 };
+        let animationTimeout = null;
+        
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimal' : 'multiplication')) {
+                    btn.classList.add('active');
+                }
+            });
+            generateProblem();
+        }
+        
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        
+        function generateDecimalProblem(difficulty) {
+            let num1, num2, operator;
+            
+            if (difficulty === 'easy') {
+                num1 = getRandomInt(1, 9) + getRandomInt(1, 9) / 10;
+                num2 = getRandomInt(1, 9) + getRandomInt(1, 9) / 10;
+                operator = Math.random() > 0.5 ? '+' : '-';
+            } else if (difficulty === 'medium') {
+                num1 = getRandomInt(10, 99) + getRandomInt(1, 99) / 100;
+                num2 = getRandomInt(10, 99) + getRandomInt(1, 99) / 100;
+                operator = Math.random() > 0.5 ? '+' : '-';
+            } else {
+                num1 = getRandomInt(100, 999) + getRandomInt(1, 99) / 100;
+                num2 = getRandomInt(100, 999) + getRandomInt(1, 99) / 100;
+                operator = Math.random() > 0.5 ? '+' : '-';
+            }
+            
+            // Ensure positive result for subtraction
+            if (operator === '-' && num1 < num2) {
+                [num1, num2] = [num2, num1];
+            }
+            
+            const answer = operator === '+' ? num1 + num2 : num1 - num2;
+            
+            return {
+                num1: parseFloat(num1.toFixed(2)),
+                num2: parseFloat(num2.toFixed(2)),
+                operator: operator,
+                answer: parseFloat(answer.toFixed(2)),
+                type: 'decimal'
+            };
+        }
+        
+        function generateMultiplyProblem(difficulty) {
+            let num1, num2;
+            
+            if (difficulty === 'easy') {
+                num1 = getRandomInt(11, 20);
+                num2 = getRandomInt(2, 9);
+            } else if (difficulty === 'medium') {
+                num1 = getRandomInt(11, 30);
+                num2 = getRandomInt(11, 30);
+            } else {
+                num1 = getRandomInt(31, 99);
+                num2 = getRandomInt(31, 99);
+            }
+            
+            return {
+                num1: num1,
+                num2: num2,
+                operator: '×',
+                answer: num1 * num2,
+                type: 'multiply'
+            };
+        }
+        
+        function generateProblem() {
+            const difficulty = document.getElementById('difficulty').value;
+            
+            if (currentMode === 'decimal') {
+                currentProblem = generateDecimalProblem(difficulty);
+            } else {
+                currentProblem = generateMultiplyProblem(difficulty);
+            }
+            
+            document.getElementById('problem').textContent = 
+                `${currentProblem.num1} ${currentProblem.operator} ${currentProblem.num2} = ?`;
+            document.getElementById('answerInput').value = '';
+            document.getElementById('feedback').style.display = 'none';
+            document.getElementById('nextBtn').style.display = 'none';
+            document.getElementById('animationArea').innerHTML = '';
+            
+            if (animationTimeout) clearTimeout(animationTimeout);
+        }
+        
+        function showAnimation() {
+            const area = document.getElementById('animationArea');
+            area.innerHTML = '';
+            
+            if (currentProblem.type === 'decimal') {
+                showDecimalAnimation();
+            } else {
+                showMultiplyAnimation();
+            }
+        }
+        
+        function showDecimalAnimation() {
+            const area = document.getElementById('animationArea');
+            const { num1, num2, operator, answer } = currentProblem;
+            
+            // Format numbers to show decimal places
+            const n1Str = num1.toFixed(2);
+            const n2Str = num2.toFixed(2);
+            const maxLen = Math.max(n1Str.length, n2Str.length);
+            
+            let steps = [];
+            
+            steps.push(`📝 Step 1: Write the numbers`);
+            steps.push(`      ${n1Str.padStart(maxLen + 2)}`);
+            steps.push(`    ${operator} ${n2Str.padStart(maxLen)}`);
+            steps.push(`    ${'─'.repeat(maxLen + 3)}`);
+            
+            if (operator === '+') {
+                // Show addition steps
+                const n1cents = Math.round(num1 * 100);
+                const n2cents = Math.round(num2 * 100);
+                const sumCents = n1cents + n2cents;
+                
+                steps.push(`📝 Step 2: Add from right to left`);
+                steps.push(`      ${n1Str.padStart(maxLen + 2)}`);
+                steps.push(`    + ${n2Str.padStart(maxLen)}`);
+                steps.push(`    ${'─'.repeat(maxLen + 3)}`);
+                steps.push(`      ${answer.toFixed(2).padStart(maxLen + 2)} ✅`);
+            } else {
+                steps.push(`📝 Step 2: Subtract from right to left`);
+                steps.push(`      ${n1Str.padStart(maxLen + 2)}`);
+                steps.push(`    - ${n2Str.padStart(maxLen)}`);
+                steps.push(`    ${'─'.repeat(maxLen + 3)}`);
+                steps.push(`      ${answer.toFixed(2).padStart(maxLen + 2)} ✅`);
+            }
+            
+            steps.push(`🎯 Final Answer: ${answer.toFixed(2)}`);
+            
+            displayAnimationSteps(steps);
+        }
+        
+        function showMultiplyAnimation() {
+            const area = document.getElementById('animationArea');
+            const { num1, num2, answer } = currentProblem;
+            
+            let steps = [];
+            
+            steps.push(`📝 ${num1} × ${num2}`);
+            steps.push(``);
+            
+            // Partial products
+            const n2Str = num2.toString();
+            const partials = [];
+            
+            for (let i = n2Str.length - 1; i >= 0; i--) {
+                const digit = parseInt(n2Str[i]);
+                const partial = num1 * digit;
+                const padding = ' '.repeat(n2Str.length - 1 - i);
+                partials.push(`${padding}${partial}`);
+            }
+            
+            steps.push(`📝 Step 1: Multiply each digit`);
+            partials.forEach((p, i) => {
+                steps.push(`      ${p}`);
+            });
+            
+            steps.push(`    ${'─'.repeat(num2.toString().length + 3)}`);
+            
+            // Sum of partials
+            let sum = 0;
+            const paddedPartials = partials.map((p, i) => {
+                const val = parseInt(p.trim());
+                sum += val;
+                return ' '.repeat(i) + val;
+            });
+            
+            paddedPartials.forEach(p => {
+                steps.push(`      ${p}`);
+            });
+            
+            steps.push(`    ${'─'.repeat(Math.max(num1.toString().length, num2.toString().length) + 3)}`);
+            steps.push(`      ${answer} ✅`);
+            steps.push(``);
+            steps.push(`🎯 Final Answer: ${answer}`);
+            
+            displayAnimationSteps(steps);
+        }
+        
+        function displayAnimationSteps(steps) {
+            const area = document.getElementById('animationArea');
+            area.innerHTML = '';
+            
+            steps.forEach((step, index) => {
+                const div = document.createElement('div');
+                div.className = 'animation-step';
+                div.textContent = step;
+                div.style.animationDelay = `${index * 0.8}s`;
+                area.appendChild(div);
+            });
+        }
+        
+        function checkAnswer() {
+            const userAnswer = parseFloat(document.getElementById('answerInput').value);
+            const feedback = document.getElementById('feedback');
+            
+            if (isNaN(userAnswer)) {
+                feedback.textContent = 'Please enter a number! 📝';
+                feedback.className = 'feedback incorrect';
+                feedback.style.display = 'block';
+                return;
+            }
+            
+            score.total++;
+            
+            // Check with 2 decimal places for decimals
+            const correct = currentProblem.type === 'decimal' 
+                ? Math.abs(userAnswer - currentProblem.answer) < 0.01
+                : userAnswer === currentProblem.answer;
+            
+            if (correct) {
+                score.correct++;
+                feedback.textContent = '🎉 Correct! Great job!';
+                feedback.className = 'feedback correct';
+                playSound('correct');
+            } else {
+                feedback.innerHTML = `❌ Not quite.<br>The answer is ${currentProblem.answer}`;
+                feedback.className = 'feedback incorrect';
+                playSound('incorrect');
+            }
+            
+            feedback.style.display = 'block';
+            document.getElementById('nextBtn').style.display = 'block';
+            document.getElementById('score').textContent = 
+                `Score: ${score.correct} / ${score.total}`;
+        }
+        
+        function playSound(type) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                if (type === 'correct') {
+                    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+                    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.3);
+                } else {
+                    oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+                    oscillator.frequency.setValueAtTime(150, audioContext.currentTime + 0.2);
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.4);
+                }
+            } catch (e) {
+                console.log('Audio not supported');
+            }
+        }
+        
+        // Handle Enter key
+        document.getElementById('answerInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+        
+        // Initialize
+        generateProblem();
+    </script>
+</body>
+</html>
