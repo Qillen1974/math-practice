@@ -501,44 +501,65 @@
             const { num1, num2, answer } = currentProblem;
             
             let steps = [];
+            const n1Str = num1.toString();
+            const n2Str = num2.toString();
             
-            steps.push(`📝 ${num1} × ${num2}`);
+            steps.push(`📝 ${num1} × ${n2Str}`);
             steps.push(``);
             
-            // Partial products
-            const n2Str = num2.toString();
-            const partials = [];
+            // Show each digit multiplication with carry
+            steps.push(`📝 Step 1: Multiply each digit of ${n2Str} by ${n1Str}`);
+            steps.push(``);
             
+            // For each digit in n2 (from right to left)
+            let results = [];
             for (let i = n2Str.length - 1; i >= 0; i--) {
-                const digit = parseInt(n2Str[i]);
-                const partial = num1 * digit;
-                const padding = ' '.repeat(n2Str.length - 1 - i);
-                partials.push(`${padding}${partial}`);
+                const n2Digit = parseInt(n2Str[i]);
+                const pos = n2Str.length - 1 - i;
+                
+                // Show the multiplication for this digit
+                let explanation = `   ${n1Str} × ${n2Digit} = `;
+                let products = [];
+                let total = 0;
+                let carry = 0;
+                
+                for (let j = n1Str.length - 1; j >= 0; j--) {
+                    const n1Digit = parseInt(n1Str[j]);
+                    const prod = n1Digit * n2Digit + carry;
+                    const digit = prod % 10;
+                    carry = Math.floor(prod / 10);
+                    products.unshift({digit, carry});
+                    total = prod;
+                }
+                
+                // Format the result with zeros
+                const resultStr = total.toString().padStart(n1Str.length + pos, ' ');
+                results.push(resultStr);
+                
+                steps.push(`${explanation}${total}`);
             }
             
-            steps.push(`📝 Step 1: Multiply each digit`);
-            partials.forEach((p, i) => {
-                steps.push(`      ${p}`);
-            });
-            
-            steps.push(`    ${'─'.repeat(num2.toString().length + 3)}`);
-            
-            // Sum of partials
-            let sum = 0;
-            const paddedPartials = partials.map((p, i) => {
-                const val = parseInt(p.trim());
-                sum += val;
-                return ' '.repeat(i) + val;
-            });
-            
-            paddedPartials.forEach(p => {
-                steps.push(`      ${p}`);
-            });
-            
-            steps.push(`    ${'─'.repeat(Math.max(num1.toString().length, num2.toString().length) + 3)}`);
-            steps.push(`      ${answer} ✅`);
             steps.push(``);
-            steps.push(`🎯 Final Answer: ${answer}`);
+            steps.push(`📝 Step 2: Write partial products`);
+            results.forEach((r, i) => {
+                steps.push(`      ${r}`);
+            });
+            
+            // Add zeros for alignment
+            const maxLen = results[results.length - 1].length;
+            const alignedResults = results.map((r, i) => {
+                return ' '.repeat(i) + r;
+            });
+            
+            steps.push(`    ${'─'.repeat(maxLen)}`);
+            alignedResults.forEach(r => {
+                steps.push(`      ${r}`);
+            });
+            
+            steps.push(`    ${'─'.repeat(maxLen)}`);
+            steps.push(`      ${answer}`);
+            steps.push(``);
+            steps.push(`🎯 ${num1} × ${n2Str} = ${answer}`);
             
             displayAnimationSteps(steps);
         }
