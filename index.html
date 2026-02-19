@@ -408,38 +408,81 @@
             const area = document.getElementById('animationArea');
             const { num1, num2, operator, answer } = currentProblem;
             
-            // Format numbers to show decimal places
+            // Get integer and decimal parts
+            const n1Int = Math.floor(num1);
+            const n1Dec = Math.round((num1 - n1Int) * 100);
+            const n2Int = Math.floor(num2);
+            const n2Dec = Math.round((num2 - n2Int) * 100);
+            
+            // Format with proper decimal alignment (2 decimal places)
             const n1Str = num1.toFixed(2);
             const n2Str = num2.toFixed(2);
-            const maxLen = Math.max(n1Str.length, n2Str.length);
+            const maxLen = 8; // For XX.XX format
             
             let steps = [];
             
-            steps.push(`📝 Step 1: Write the numbers`);
-            steps.push(`      ${n1Str.padStart(maxLen + 2)}`);
-            steps.push(`    ${operator} ${n2Str.padStart(maxLen)}`);
-            steps.push(`    ${'─'.repeat(maxLen + 3)}`);
-            
             if (operator === '+') {
-                // Show addition steps
-                const n1cents = Math.round(num1 * 100);
-                const n2cents = Math.round(num2 * 100);
-                const sumCents = n1cents + n2cents;
+                steps.push(`📝 ${n1Str} + ${n2Str}`);
+                steps.push(``);
+                steps.push(`📝 Step 1: Add decimals first (right to left)`);
+                steps.push(`     ${n1Str}`);
+                steps.push(`   + ${n2Str}`);
+                steps.push(`   ${'─'.repeat(8)}`);
                 
-                steps.push(`📝 Step 2: Add from right to left`);
-                steps.push(`      ${n1Str.padStart(maxLen + 2)}`);
-                steps.push(`    + ${n2Str.padStart(maxLen)}`);
-                steps.push(`    ${'─'.repeat(maxLen + 3)}`);
-                steps.push(`      ${answer.toFixed(2).padStart(maxLen + 2)} ✅`);
+                // Calculate decimal addition
+                const decSum = n1Dec + n2Dec;
+                const carry = Math.floor(decSum / 100);
+                const newDec = decSum % 100;
+                
+                if (carry > 0) {
+                    steps.push(`     ${n1Dec} + ${n2Dec} = ${decSum}`);
+                    steps.push(`     Carry ${carry} to ones place!`);
+                    steps.push(``);
+                    steps.push(`📝 Step 2: Add ones + carry`);
+                    steps.push(`     ${n1Int} + ${n2Int} + ${carry} = ${n1Int + n2Int + carry}`);
+                    steps.push(``);
+                }
+                
+                steps.push(`🎯 ${n1Str} + ${n2Str} = ${answer.toFixed(2)}`);
+                
             } else {
-                steps.push(`📝 Step 2: Subtract from right to left`);
-                steps.push(`      ${n1Str.padStart(maxLen + 2)}`);
-                steps.push(`    - ${n2Str.padStart(maxLen)}`);
-                steps.push(`    ${'─'.repeat(maxLen + 3)}`);
-                steps.push(`      ${answer.toFixed(2).padStart(maxLen + 2)} ✅`);
+                // Subtraction - show borrowing!
+                steps.push(`📝 ${n1Str} - ${n2Str}`);
+                steps.push(``);
+                
+                // Check if borrowing is needed
+                const needBorrow = n1Dec < n2Dec;
+                
+                if (needBorrow) {
+                    steps.push(`📝 Step 1: Check decimals`);
+                    steps.push(`     ${n1Dec} - ${n2Dec}...`);
+                    steps.push(`     Need to borrow from ones!`);
+                    steps.push(``);
+                    steps.push(`📝 Step 2: Borrow 1 ( = 100 cents)`);
+                    steps.push(`     ${n1Int - 1}.${n1Dec + 100}`);
+                    steps.push(`   - ${n2Str}`);
+                    steps.push(`   ${'─'.repeat(8)}`);
+                    steps.push(``);
+                    
+                    const newDec = n1Dec + 100 - n2Dec;
+                    steps.push(`📝 Step 3: Subtract decimals`);
+                    steps.push(`     ${n1Dec + 100} - ${n2Dec} = ${newDec}`);
+                    steps.push(``);
+                    
+                    steps.push(`📝 Step 4: Subtract ones`);
+                    steps.push(`     ${n1Int - 1} - ${n2Int} = ${n1Int - 1 - n2Int}`);
+                    steps.push(``);
+                } else {
+                    steps.push(`📝 Step 1: Subtract decimals`);
+                    steps.push(`     ${n1Dec} - ${n2Dec} = ${n1Dec - n2Dec}`);
+                    steps.push(``);
+                    steps.push(`📝 Step 2: Subtract ones`);
+                    steps.push(`     ${n1Int} - ${n2Int} = ${n1Int - n2Int}`);
+                    steps.push(``);
+                }
+                
+                steps.push(`🎯 ${n1Str} - ${n2Str} = ${answer.toFixed(2)}`);
             }
-            
-            steps.push(`🎯 Final Answer: ${answer.toFixed(2)}`);
             
             displayAnimationSteps(steps);
         }
