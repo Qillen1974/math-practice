@@ -507,57 +507,62 @@
             steps.push(`📝 ${num1} × ${n2Str}`);
             steps.push(``);
             
-            // Show each digit multiplication with carry
-            steps.push(`📝 Step 1: Multiply each digit of ${n2Str} by ${n1Str}`);
+            // Explain each digit multiplication
+            steps.push(`📝 Step 1: Multiply ${n1Str} by each digit of ${n2Str}`);
             steps.push(``);
             
-            // For each digit in n2 (from right to left)
-            let results = [];
+            // For each digit in n2
+            let partials = [];
             for (let i = n2Str.length - 1; i >= 0; i--) {
-                const n2Digit = parseInt(n2Str[i]);
-                const pos = n2Str.length - 1 - i;
+                const digit = parseInt(n2Str[i]);
+                const placeValue = Math.pow(10, n2Str.length - 1 - i);
+                const product = num1 * digit;
                 
-                // Show the multiplication for this digit
-                let explanation = `   ${n1Str} × ${n2Digit} = `;
-                let products = [];
-                let total = 0;
-                let carry = 0;
-                
-                for (let j = n1Str.length - 1; j >= 0; j--) {
-                    const n1Digit = parseInt(n1Str[j]);
-                    const prod = n1Digit * n2Digit + carry;
-                    const digit = prod % 10;
-                    carry = Math.floor(prod / 10);
-                    products.unshift({digit, carry});
-                    total = prod;
+                let explanation = `${num1} × ${digit}`;
+                if (placeValue > 1) {
+                    explanation += ` (${digit} is in ${placeValue}s place)`;
                 }
+                explanation += ` = ${product}`;
                 
-                // Format the result with zeros
-                const resultStr = total.toString().padStart(n1Str.length + pos, ' ');
-                results.push(resultStr);
+                steps.push(`   ${explanation}`);
                 
-                steps.push(`${explanation}${total}`);
+                // Add zeros for place value
+                let paddedProduct = product.toString() + '0'.repeat(n2Str.length - 1 - i);
+                partials.push({ product: product, padded: paddedProduct, place: placeValue });
             }
             
             steps.push(``);
-            steps.push(`📝 Step 2: Write partial products`);
-            results.forEach((r, i) => {
-                steps.push(`      ${r}`);
+            steps.push(`📝 Step 2: Add zeros for place value`);
+            partials.forEach(p => {
+                if (p.place > 1) {
+                    steps.push(`   ${p.product} → add ${n2Str.length - 1} zero(s) → ${p.padded}`);
+                } else {
+                    steps.push(`   ${p.product} → no zero needed`);
+                }
             });
             
-            // Add zeros for alignment
-            const maxLen = results[results.length - 1].length;
-            const alignedResults = results.map((r, i) => {
-                return ' '.repeat(i) + r;
+            steps.push(``);
+            steps.push(`📝 Step 3: Write and add`);
+            
+            // Write aligned partials
+            let maxLen = 0;
+            const alignedPartials = partials.map((p, i) => {
+                const s = ' '.repeat(i) + p.padded;
+                if (s.length > maxLen) maxLen = s.length;
+                return s;
             });
             
-            steps.push(`    ${'─'.repeat(maxLen)}`);
-            alignedResults.forEach(r => {
-                steps.push(`      ${r}`);
+            alignedPartials.forEach(p => {
+                steps.push(`   ${p}`);
             });
             
-            steps.push(`    ${'─'.repeat(maxLen)}`);
-            steps.push(`      ${answer}`);
+            steps.push(`   ${'─'.repeat(maxLen)}`);
+            
+            // Calculate sum
+            let sum = 0;
+            partials.forEach(p => sum += parseInt(p.padded));
+            steps.push(`   ${answer}`);
+            
             steps.push(``);
             steps.push(`🎯 ${num1} × ${n2Str} = ${answer}`);
             
