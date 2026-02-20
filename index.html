@@ -263,6 +263,7 @@
         <div class="mode-selector">
             <button class="mode-btn active" onclick="setMode('decimal')">➕➖ Decimals</button>
             <button class="mode-btn" onclick="setMode('multiply')">✖️ Multiplication</button>
+            <button class="mode-btn" onclick="setMode('divide')">➗ Division</button>
         </div>
         
         <div class="practice-area">
@@ -308,7 +309,7 @@
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimal' : 'multiplication')) {
+                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimal' : mode === 'multiply' ? 'multiplication' : 'division')) {
                     btn.classList.add('active');
                 }
             });
@@ -375,13 +376,45 @@
             };
         }
         
+        function generateDivideProblem(difficulty) {
+            let num1, num2, answer;
+            
+            // Generate clean division problems (no remainders for simplicity)
+            if (difficulty === 'easy') {
+                // Simple: divisor 2-9, quotient 2-10
+                num2 = getRandomInt(2, 9);
+                answer = getRandomInt(2, 10);
+                num1 = num2 * answer;
+            } else if (difficulty === 'medium') {
+                // Medium: divisor 2-12, quotient 11-30
+                num2 = getRandomInt(2, 12);
+                answer = getRandomInt(11, 30);
+                num1 = num2 * answer;
+            } else {
+                // Hard: divisor 11-25, quotient 20-50
+                num2 = getRandomInt(11, 25);
+                answer = getRandomInt(20, 50);
+                num1 = num2 * answer;
+            }
+            
+            return {
+                num1: num1,
+                num2: num2,
+                operator: '÷',
+                answer: answer,
+                type: 'divide'
+            };
+        }
+        
         function generateProblem() {
             const difficulty = document.getElementById('difficulty').value;
             
             if (currentMode === 'decimal') {
                 currentProblem = generateDecimalProblem(difficulty);
-            } else {
+            } else if (currentMode === 'multiply') {
                 currentProblem = generateMultiplyProblem(difficulty);
+            } else {
+                currentProblem = generateDivideProblem(difficulty);
             }
             
             document.getElementById('problem').textContent = 
@@ -400,8 +433,10 @@
             
             if (currentProblem.type === 'decimal') {
                 showDecimalAnimation();
-            } else {
+            } else if (currentProblem.type === 'multiply') {
                 showMultiplyAnimation();
+            } else {
+                showDivideAnimation();
             }
         }
         
@@ -571,6 +606,51 @@
             displayAnimationSteps(steps);
         }
         
+        function showDivideAnimation() {
+            const area = document.getElementById('animationArea');
+            const { num1: dividend, num2: divisor, answer } = currentProblem;
+            
+            let steps = [];
+            
+            steps.push(`📝 ${dividend} ÷ ${divisor}`);
+            steps.push(``);
+            steps.push(`📝 Long Division`);
+            steps.push(``);
+            steps.push(`   ┌────${answer}`);
+            steps.push(`   │ ${dividend}`);
+            steps.push(`   │`);
+            
+            // Calculate partial quotients
+            let remainder = dividend;
+            let working = '';
+            let current = 0;
+            let tempDiv = divisor;
+            
+            const dividendStr = dividend.toString();
+            
+            steps.push(`📝 Step 1: Divide ${dividend} by ${divisor}`);
+            steps.push(``);
+            
+            // Simple approach: show the multiplication check
+            steps.push(`📝 Step 2: Multiply ${divisor} × ${answer}`);
+            steps.push(`   ${divisor} × ${answer} = ${divisor * answer}`);
+            steps.push(``);
+            steps.push(`📝 Step 3: Subtract`);
+            steps.push(`   ${dividend} - ${divisor * answer} = ${dividend - divisor * answer}`);
+            steps.push(``);
+            
+            if (dividend - divisor * answer === 0) {
+                steps.push(`   ✅ Remainder is 0 - Perfect division!`);
+            } else {
+                steps.push(`   📝 Remainder: ${dividend - divisor * answer}`);
+            }
+            
+            steps.push(``);
+            steps.push(`🎯 ${dividend} ÷ ${divisor} = ${answer}`);
+            
+            displayAnimationSteps(steps);
+        }
+        
         function displayAnimationSteps(steps) {
             const area = document.getElementById('animationArea');
             area.innerHTML = '';
@@ -597,7 +677,7 @@
             
             score.total++;
             
-            // Check with 2 decimal places for decimals
+            // Check with 2 decimal places for decimals, exact match for others
             const correct = currentProblem.type === 'decimal' 
                 ? Math.abs(userAnswer - currentProblem.answer) < 0.01
                 : userAnswer === currentProblem.answer;
