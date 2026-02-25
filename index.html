@@ -264,6 +264,7 @@
             <button class="mode-btn active" onclick="setMode('decimal')">➕➖ Decimals</button>
             <button class="mode-btn" onclick="setMode('multiply')">✖️ Multiplication</button>
             <button class="mode-btn" onclick="setMode('divide')">➗ Division</button>
+            <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
         </div>
         
         <div class="practice-area">
@@ -309,7 +310,7 @@
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimal' : mode === 'multiply' ? 'multiplication' : 'division')) {
+                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimals' : mode === 'multiply' ? 'multiplication' : mode === 'divide' ? 'division' : 'decimal ×')) {
                     btn.classList.add('active');
                 }
             });
@@ -406,6 +407,36 @@
             };
         }
         
+        function generateDecimalMultiplyProblem(difficulty) {
+            let num1, num2, decimalPlaces;
+
+            if (difficulty === 'easy') {
+                decimalPlaces = 1;
+                num1 = getRandomInt(11, 99) / 10;  // 1.1–9.9
+                num2 = getRandomInt(2, 9);
+            } else if (difficulty === 'medium') {
+                decimalPlaces = 2;
+                num1 = getRandomInt(101, 999) / 100;  // 1.01–9.99
+                num2 = getRandomInt(2, 9);
+            } else {
+                decimalPlaces = 3;
+                num1 = getRandomInt(1, 9999) / 1000;  // 0.001–9.999
+                num2 = getRandomInt(2, 9);
+            }
+
+            num1 = parseFloat(num1.toFixed(decimalPlaces));
+            const answer = parseFloat((num1 * num2).toFixed(decimalPlaces));
+
+            return {
+                num1: num1,
+                num2: num2,
+                operator: '×',
+                answer: answer,
+                type: 'decimal_multiply',
+                decimalPlaces: decimalPlaces
+            };
+        }
+
         function generateProblem() {
             const difficulty = document.getElementById('difficulty').value;
             
@@ -413,8 +444,10 @@
                 currentProblem = generateDecimalProblem(difficulty);
             } else if (currentMode === 'multiply') {
                 currentProblem = generateMultiplyProblem(difficulty);
-            } else {
+            } else if (currentMode === 'divide') {
                 currentProblem = generateDivideProblem(difficulty);
+            } else if (currentMode === 'decimal_multiply') {
+                currentProblem = generateDecimalMultiplyProblem(difficulty);
             }
             
             document.getElementById('problem').textContent = 
@@ -435,8 +468,10 @@
                 showDecimalAnimation();
             } else if (currentProblem.type === 'multiply') {
                 showMultiplyAnimation();
-            } else {
+            } else if (currentProblem.type === 'divide') {
                 showDivideAnimation();
+            } else if (currentProblem.type === 'decimal_multiply') {
+                showDecimalMultiplyAnimation();
             }
         }
         
@@ -651,6 +686,35 @@
             displayAnimationSteps(steps);
         }
         
+        function showDecimalMultiplyAnimation() {
+            const { num1, num2, answer, decimalPlaces } = currentProblem;
+
+            const num1Str = num1.toFixed(decimalPlaces);
+            const wholeNum = Math.round(num1 * Math.pow(10, decimalPlaces));
+            const wholeProduct = wholeNum * num2;
+
+            let steps = [];
+
+            steps.push(`📝 ${num1Str} × ${num2}`);
+            steps.push(``);
+            steps.push(`📝 Step 1: Ignore the decimal, multiply as whole numbers`);
+            steps.push(`   ${num1Str} → ${wholeNum}`);
+            steps.push(``);
+            steps.push(`📝 Step 2: Multiply whole numbers`);
+            steps.push(`   ${wholeNum} × ${num2} = ${wholeProduct}`);
+            steps.push(``);
+            steps.push(`📝 Step 3: Count decimal places in original`);
+            steps.push(`   ${num1Str} has ${decimalPlaces} decimal place${decimalPlaces > 1 ? 's' : ''}`);
+            steps.push(``);
+            steps.push(`📝 Step 4: Place the decimal point`);
+            steps.push(`   ${wholeProduct} → ${answer}`);
+            steps.push(`   (move decimal ${decimalPlaces} place${decimalPlaces > 1 ? 's' : ''} from the right)`);
+            steps.push(``);
+            steps.push(`🎯 ${num1Str} × ${num2} = ${answer}`);
+
+            displayAnimationSteps(steps);
+        }
+
         function displayAnimationSteps(steps) {
             const area = document.getElementById('animationArea');
             area.innerHTML = '';
@@ -678,7 +742,7 @@
             score.total++;
             
             // Check with 2 decimal places for decimals, exact match for others
-            const correct = currentProblem.type === 'decimal' 
+            const correct = (currentProblem.type === 'decimal' || currentProblem.type === 'decimal_multiply')
                 ? Math.abs(userAnswer - currentProblem.answer) < 0.01
                 : userAnswer === currentProblem.answer;
             
