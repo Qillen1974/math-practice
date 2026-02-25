@@ -45,6 +45,7 @@
             gap: 10px;
             padding: 20px;
             background: #f7fafc;
+            flex-wrap: wrap;
         }
         
         .mode-btn {
@@ -265,6 +266,7 @@
             <button class="mode-btn" onclick="setMode('multiply')">✖️ Multiplication</button>
             <button class="mode-btn" onclick="setMode('divide')">➗ Division</button>
             <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
+            <button class="mode-btn" onclick="setMode('order_ops')">🔢 Order of Ops</button>
         </div>
         
         <div class="practice-area">
@@ -310,7 +312,7 @@
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimals' : mode === 'multiply' ? 'multiplication' : mode === 'divide' ? 'division' : 'decimal ×')) {
+                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimals' : mode === 'multiply' ? 'multiplication' : mode === 'divide' ? 'division' : mode === 'order_ops' ? 'order' : 'decimal ×')) {
                     btn.classList.add('active');
                 }
             });
@@ -437,6 +439,202 @@
             };
         }
 
+        function generateOrderOpsProblem(difficulty) {
+            // Helper to pick a random element from an array
+            const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+            if (difficulty === 'easy') {
+                // 3 operands, 2 operators (one +/-, one ×/÷), no parentheses
+                const a = getRandomInt(2, 9);
+                const b = getRandomInt(2, 9);
+                const c = getRandomInt(1, 9);
+                const mulOrDiv = pick(['×', '÷']);
+                const addOrSub = pick(['+', '-']);
+
+                let expr, answer, steps;
+
+                if (Math.random() < 0.5) {
+                    // Pattern: a +/- b ×/÷ c
+                    let bVal = b, cVal = c;
+                    if (mulOrDiv === '÷') {
+                        cVal = getRandomInt(2, 5);
+                        bVal = cVal * getRandomInt(2, 5);
+                    }
+                    const mulResult = mulOrDiv === '×' ? bVal * cVal : bVal / cVal;
+                    const finalAnswer = addOrSub === '+' ? a + mulResult : a - mulResult;
+                    // Ensure positive result
+                    if (finalAnswer < 0) {
+                        return generateOrderOpsProblem(difficulty);
+                    }
+                    expr = `${a} ${addOrSub} ${bVal} ${mulOrDiv} ${cVal}`;
+                    answer = finalAnswer;
+                    steps = [
+                        { text: `Start: ${expr}`, expr: expr },
+                        { text: `First, ${mulOrDiv === '×' ? 'multiply' : 'divide'}: ${bVal} ${mulOrDiv} ${cVal} = ${mulResult}`, expr: `${a} ${addOrSub} ${mulResult}` },
+                        { text: `Then, ${addOrSub === '+' ? 'add' : 'subtract'}: ${a} ${addOrSub} ${mulResult} = ${answer}`, expr: `${answer}` }
+                    ];
+                } else {
+                    // Pattern: a ×/÷ b +/- c
+                    let aVal = a, bVal = b;
+                    if (mulOrDiv === '÷') {
+                        bVal = getRandomInt(2, 5);
+                        aVal = bVal * getRandomInt(2, 5);
+                    }
+                    const mulResult = mulOrDiv === '×' ? aVal * bVal : aVal / bVal;
+                    const finalAnswer = addOrSub === '+' ? mulResult + c : mulResult - c;
+                    if (finalAnswer < 0) {
+                        return generateOrderOpsProblem(difficulty);
+                    }
+                    expr = `${aVal} ${mulOrDiv} ${bVal} ${addOrSub} ${c}`;
+                    answer = finalAnswer;
+                    steps = [
+                        { text: `Start: ${expr}`, expr: expr },
+                        { text: `First, ${mulOrDiv === '×' ? 'multiply' : 'divide'}: ${aVal} ${mulOrDiv} ${bVal} = ${mulResult}`, expr: `${mulResult} ${addOrSub} ${c}` },
+                        { text: `Then, ${addOrSub === '+' ? 'add' : 'subtract'}: ${mulResult} ${addOrSub} ${c} = ${answer}`, expr: `${answer}` }
+                    ];
+                }
+
+                return { expression: expr, answer: answer, type: 'order_ops', steps: steps };
+
+            } else if (difficulty === 'medium') {
+                // 3-4 operands with parentheses
+                const pattern = pick(['paren_mul', 'mul_paren', 'paren_add']);
+
+                if (pattern === 'paren_mul') {
+                    // (a + b) × c
+                    const a = getRandomInt(1, 9);
+                    const b = getRandomInt(1, 9);
+                    const c = getRandomInt(2, 6);
+                    const addOrSub = pick(['+', '-']);
+                    const aVal = addOrSub === '-' ? Math.max(a, b) : a;
+                    const bVal = addOrSub === '-' ? Math.min(a, b) : b;
+                    const parenResult = addOrSub === '+' ? aVal + bVal : aVal - bVal;
+                    const answer = parenResult * c;
+                    const expr = `(${aVal} ${addOrSub} ${bVal}) × ${c}`;
+                    return {
+                        expression: expr, answer: answer, type: 'order_ops',
+                        steps: [
+                            { text: `Start: ${expr}`, expr: expr },
+                            { text: `Parentheses first: ${aVal} ${addOrSub} ${bVal} = ${parenResult}`, expr: `${parenResult} × ${c}` },
+                            { text: `Then multiply: ${parenResult} × ${c} = ${answer}`, expr: `${answer}` }
+                        ]
+                    };
+                } else if (pattern === 'mul_paren') {
+                    // c × (a + b) - d
+                    const a = getRandomInt(1, 9);
+                    const b = getRandomInt(1, 9);
+                    const c = getRandomInt(2, 5);
+                    const d = getRandomInt(1, 9);
+                    const parenResult = a + b;
+                    const mulResult = c * parenResult;
+                    const answer = mulResult - d;
+                    if (answer < 0) return generateOrderOpsProblem(difficulty);
+                    const expr = `${c} × (${a} + ${b}) - ${d}`;
+                    return {
+                        expression: expr, answer: answer, type: 'order_ops',
+                        steps: [
+                            { text: `Start: ${expr}`, expr: expr },
+                            { text: `Parentheses first: ${a} + ${b} = ${parenResult}`, expr: `${c} × ${parenResult} - ${d}` },
+                            { text: `Then multiply: ${c} × ${parenResult} = ${mulResult}`, expr: `${mulResult} - ${d}` },
+                            { text: `Then subtract: ${mulResult} - ${d} = ${answer}`, expr: `${answer}` }
+                        ]
+                    };
+                } else {
+                    // a + (b × c) - d
+                    const a = getRandomInt(10, 20);
+                    const b = getRandomInt(2, 5);
+                    const c = getRandomInt(2, 5);
+                    const d = getRandomInt(1, 9);
+                    const mulResult = b * c;
+                    const answer = a + mulResult - d;
+                    if (answer < 0) return generateOrderOpsProblem(difficulty);
+                    const expr = `${a} + (${b} × ${c}) - ${d}`;
+                    return {
+                        expression: expr, answer: answer, type: 'order_ops',
+                        steps: [
+                            { text: `Start: ${expr}`, expr: expr },
+                            { text: `Parentheses first: ${b} × ${c} = ${mulResult}`, expr: `${a} + ${mulResult} - ${d}` },
+                            { text: `Left to right, add: ${a} + ${mulResult} = ${a + mulResult}`, expr: `${a + mulResult} - ${d}` },
+                            { text: `Then subtract: ${a + mulResult} - ${d} = ${answer}`, expr: `${answer}` }
+                        ]
+                    };
+                }
+
+            } else {
+                // Hard: 4-5 operands, mixed operators, may include ÷ and parentheses
+                const pattern = pick(['mixed_no_paren', 'mixed_paren', 'double_mul_div']);
+
+                if (pattern === 'mixed_no_paren') {
+                    // a + b × c - d ÷ e
+                    const b = getRandomInt(2, 6);
+                    const c = getRandomInt(2, 6);
+                    const e = getRandomInt(2, 5);
+                    const d = e * getRandomInt(2, 5);
+                    const a = getRandomInt(10, 30);
+                    const mulResult = b * c;
+                    const divResult = d / e;
+                    const answer = a + mulResult - divResult;
+                    if (answer < 0 || answer !== Math.floor(answer)) return generateOrderOpsProblem(difficulty);
+                    const expr = `${a} + ${b} × ${c} - ${d} ÷ ${e}`;
+                    return {
+                        expression: expr, answer: answer, type: 'order_ops',
+                        steps: [
+                            { text: `Start: ${expr}`, expr: expr },
+                            { text: `Multiply first: ${b} × ${c} = ${mulResult}`, expr: `${a} + ${mulResult} - ${d} ÷ ${e}` },
+                            { text: `Divide: ${d} ÷ ${e} = ${divResult}`, expr: `${a} + ${mulResult} - ${divResult}` },
+                            { text: `Add: ${a} + ${mulResult} = ${a + mulResult}`, expr: `${a + mulResult} - ${divResult}` },
+                            { text: `Subtract: ${a + mulResult} - ${divResult} = ${answer}`, expr: `${answer}` }
+                        ]
+                    };
+                } else if (pattern === 'mixed_paren') {
+                    // (a + b) × c - d ÷ e
+                    const a = getRandomInt(2, 8);
+                    const b = getRandomInt(2, 8);
+                    const c = getRandomInt(2, 5);
+                    const e = getRandomInt(2, 4);
+                    const d = e * getRandomInt(2, 5);
+                    const parenResult = a + b;
+                    const mulResult = parenResult * c;
+                    const divResult = d / e;
+                    const answer = mulResult - divResult;
+                    if (answer < 0 || answer !== Math.floor(answer)) return generateOrderOpsProblem(difficulty);
+                    const expr = `(${a} + ${b}) × ${c} - ${d} ÷ ${e}`;
+                    return {
+                        expression: expr, answer: answer, type: 'order_ops',
+                        steps: [
+                            { text: `Start: ${expr}`, expr: expr },
+                            { text: `Parentheses first: ${a} + ${b} = ${parenResult}`, expr: `${parenResult} × ${c} - ${d} ÷ ${e}` },
+                            { text: `Multiply: ${parenResult} × ${c} = ${mulResult}`, expr: `${mulResult} - ${d} ÷ ${e}` },
+                            { text: `Divide: ${d} ÷ ${e} = ${divResult}`, expr: `${mulResult} - ${divResult}` },
+                            { text: `Subtract: ${mulResult} - ${divResult} = ${answer}`, expr: `${answer}` }
+                        ]
+                    };
+                } else {
+                    // a × b + c × d - e
+                    const a = getRandomInt(2, 6);
+                    const b = getRandomInt(2, 6);
+                    const c = getRandomInt(2, 6);
+                    const d = getRandomInt(2, 6);
+                    const e = getRandomInt(1, 9);
+                    const mul1 = a * b;
+                    const mul2 = c * d;
+                    const answer = mul1 + mul2 - e;
+                    if (answer < 0) return generateOrderOpsProblem(difficulty);
+                    const expr = `${a} × ${b} + ${c} × ${d} - ${e}`;
+                    return {
+                        expression: expr, answer: answer, type: 'order_ops',
+                        steps: [
+                            { text: `Start: ${expr}`, expr: expr },
+                            { text: `Multiply left: ${a} × ${b} = ${mul1}`, expr: `${mul1} + ${c} × ${d} - ${e}` },
+                            { text: `Multiply right: ${c} × ${d} = ${mul2}`, expr: `${mul1} + ${mul2} - ${e}` },
+                            { text: `Add: ${mul1} + ${mul2} = ${mul1 + mul2}`, expr: `${mul1 + mul2} - ${e}` },
+                            { text: `Subtract: ${mul1 + mul2} - ${e} = ${answer}`, expr: `${answer}` }
+                        ]
+                    };
+                }
+            }
+        }
+
         function generateProblem() {
             const difficulty = document.getElementById('difficulty').value;
             
@@ -448,10 +646,16 @@
                 currentProblem = generateDivideProblem(difficulty);
             } else if (currentMode === 'decimal_multiply') {
                 currentProblem = generateDecimalMultiplyProblem(difficulty);
+            } else if (currentMode === 'order_ops') {
+                currentProblem = generateOrderOpsProblem(difficulty);
             }
-            
-            document.getElementById('problem').textContent = 
-                `${currentProblem.num1} ${currentProblem.operator} ${currentProblem.num2} = ?`;
+
+            if (currentMode === 'order_ops') {
+                document.getElementById('problem').textContent = `${currentProblem.expression} = ?`;
+            } else {
+                document.getElementById('problem').textContent =
+                    `${currentProblem.num1} ${currentProblem.operator} ${currentProblem.num2} = ?`;
+            }
             document.getElementById('answerInput').value = '';
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('nextBtn').style.display = 'none';
@@ -472,6 +676,8 @@
                 showDivideAnimation();
             } else if (currentProblem.type === 'decimal_multiply') {
                 showDecimalMultiplyAnimation();
+            } else if (currentProblem.type === 'order_ops') {
+                showOrderOpsAnimation();
             }
         }
         
@@ -711,6 +917,30 @@
             steps.push(`   (move decimal ${decimalPlaces} place${decimalPlaces > 1 ? 's' : ''} from the right)`);
             steps.push(``);
             steps.push(`🎯 ${num1Str} × ${num2} = ${answer}`);
+
+            displayAnimationSteps(steps);
+        }
+
+        function showOrderOpsAnimation() {
+            const { expression, answer, steps: solveSteps } = currentProblem;
+
+            let steps = [];
+            steps.push(`📝 Solve: ${expression}`);
+            steps.push(`📝 Remember PEMDAS: Parentheses, Exponents, Multiply/Divide, Add/Subtract`);
+            steps.push(``);
+
+            solveSteps.forEach((s, i) => {
+                if (i === 0) {
+                    steps.push(`📝 ${s.text}`);
+                } else if (i === solveSteps.length - 1) {
+                    steps.push(`📝 ${s.text}`);
+                    steps.push(``);
+                    steps.push(`🎯 Answer: ${answer}`);
+                } else {
+                    steps.push(`📝 Step ${i}: ${s.text}`);
+                    steps.push(`   → ${s.expr}`);
+                }
+            });
 
             displayAnimationSteps(steps);
         }
