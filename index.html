@@ -88,6 +88,43 @@
             margin-bottom: 20px;
         }
         
+        .multiple-choice {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .choice-btn {
+            padding: 20px;
+            font-size: 1.5rem;
+            border: 3px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            background: white;
+            transition: all 0.3s;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .choice-btn:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+            transform: scale(1.05);
+        }
+        
+        .choice-btn.correct {
+            border-color: #48bb78;
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .choice-btn.incorrect {
+            border-color: #f56565;
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
         .steps-container {
             min-height: 200px;
         }
@@ -262,7 +299,8 @@
         </div>
         
         <div class="mode-selector">
-            <button class="mode-btn active" onclick="setMode('decimal')">➕➖ Decimals</button>
+            <button class="mode-btn active" onclick="setMode('word')">📝 Word Problems</button>
+            <button class="mode-btn" onclick="setMode('decimal')">➕➖ Decimals</button>
             <button class="mode-btn" onclick="setMode('multiply')">✖️ Multiplication</button>
             <button class="mode-btn" onclick="setMode('divide')">➗ Division</button>
             <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
@@ -282,6 +320,7 @@
             <div class="problem-display">
                 <div class="problem" id="problem">12.5 + 3.25 = ?</div>
                 <p class="hint-text" id="hint">Enter your answer below</p>
+                <div class="multiple-choice" id="multipleChoice" style="display: none;"></div>
             </div>
             
             <button class="show-animation-btn" onclick="showAnimation()">👁️ Watch How to Solve</button>
@@ -289,7 +328,7 @@
             
             <div class="animation-area" id="animationArea"></div>
             
-            <div class="input-area">
+            <div class="input-area" id="inputArea">
                 <input type="text" class="answer-input" id="answerInput" placeholder="?">
                 <button class="submit-btn" onclick="checkAnswer()">Check ✅</button>
             </div>
@@ -312,7 +351,13 @@
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.textContent.toLowerCase().includes(mode === 'decimal' ? 'decimals' : mode === 'multiply' ? 'multiplication' : mode === 'divide' ? 'division' : mode === 'order_ops' ? 'order' : 'decimal ×')) {
+                const text = btn.textContent.toLowerCase();
+                if ((mode === 'word' && text.includes('word')) ||
+                    (mode === 'decimal' && text.includes('decimals')) ||
+                    (mode === 'multiply' && text.includes('multiplication')) ||
+                    (mode === 'divide' && text.includes('division')) ||
+                    (mode === 'decimal_multiply' && text.includes('decimal ×')) ||
+                    (mode === 'order_ops' && text.includes('order'))) {
                     btn.classList.add('active');
                 }
             });
@@ -635,10 +680,174 @@
             }
         }
 
+        // Word problem templates based on numeracy assessment style
+        const wordProblemTemplates = [
+            // Packing/remaining problems
+            {
+                template: "{name} needs to pack {total} boxes. He has packed {done} boxes. How many more boxes does he need to pack?",
+                generate: () => {
+                    const names = ['Ali', 'John', 'Sam', 'Tom', 'Ben', 'Tim'];
+                    const total = getRandomInt(15, 30);
+                    const done = getRandomInt(5, total - 5);
+                    return {
+                        question: wordProblemTemplates[0].template.replace('{name}', names[getRandomInt(0, names.length - 1)]).replace('{total}', total).replace('{done}', done),
+                        answer: total - done,
+                        options: generateOptions(total - done, 1, 10)
+                    };
+                }
+            },
+            // Multiplication word problems
+            {
+                template: "Mrs {name} puts {perBox} pencils into each box. There are {boxes} boxes. How many pencils are there in total?",
+                generate: () => {
+                    const names = ['Lee', 'Tan', 'Lim', 'Wong', 'Ng', 'Chen'];
+                    const perBox = getRandomInt(8, 15);
+                    const boxes = getRandomInt(5, 12);
+                    return {
+                        question: wordProblemTemplates[1].template.replace('{name}', names[getRandomInt(0, names.length - 1)]).replace('{perBox}', perBox).replace('{boxes}', boxes),
+                        answer: perBox * boxes,
+                        options: generateOptions(perBox * boxes, perBox, perBox * boxes + 20)
+                    };
+                }
+            },
+            // Wheels/objects per item
+            {
+                template: "A {vehicle} has {wheels} wheels. How many wheels do {count} {vehicle}s have?",
+                generate: () => {
+                    const vehicles = [
+                        { name: 'car', wheels: 4 },
+                        { name: 'bicycle', wheels: 2 },
+                        { name: 'tricycle', wheels: 3 },
+                        { name: 'bus', wheels: 6 }
+                    ];
+                    const vehicle = vehicles[getRandomInt(0, vehicles.length - 1)];
+                    const count = getRandomInt(3, 10);
+                    return {
+                        question: wordProblemTemplates[2].template.replace('{vehicle}', vehicle.name).replace('{wheels}', vehicle.wheels).replace('{count}', count),
+                        answer: vehicle.wheels * count,
+                        options: generateOptions(vehicle.wheels * count, vehicle.wheels, vehicle.wheels * count + 15)
+                    };
+                }
+            },
+            // Simple addition
+            {
+                template: "There are {num1} students in Class A and {num2} students in Class B. How many students are there altogether?",
+                generate: () => {
+                    const num1 = getRandomInt(20, 40);
+                    const num2 = getRandomInt(15, 35);
+                    return {
+                        question: wordProblemTemplates[3].template.replace('{num1}', num1).replace('{num2}', num2),
+                        answer: num1 + num2,
+                        options: generateOptions(num1 + num2, 10, num1 + num2 + 20)
+                    };
+                }
+            },
+            // Simple subtraction
+            {
+                template: "A shop has {start} apples. They sell {sold} apples. How many apples are left?",
+                generate: () => {
+                    const start = getRandomInt(50, 100);
+                    const sold = getRandomInt(20, start - 10);
+                    return {
+                        question: wordProblemTemplates[4].template.replace('{start}', start).replace('{sold}', sold),
+                        answer: start - sold,
+                        options: generateOptions(start - sold, 5, start)
+                    };
+                }
+            },
+            // Division (equal groups)
+            {
+                template: "{total} cookies are shared equally among {people} children. How many cookies does each child get?",
+                generate: () => {
+                    const people = getRandomInt(4, 9);
+                    const perChild = getRandomInt(5, 12);
+                    const total = people * perChild;
+                    return {
+                        question: wordProblemTemplates[5].template.replace('{total}', total).replace('{people}', people),
+                        answer: perChild,
+                        options: generateOptions(perChild, 2, perChild + 8)
+                    };
+                }
+            },
+            // Number sequences
+            {
+                template: "What is the missing number? {seq}",
+                generate: () => {
+                    const patterns = [
+                        { start: getRandomInt(20, 40), step: 1, missing: 1 },
+                        { start: getRandomInt(10, 30) * 5, step: 5, missing: getRandomInt(1, 4) },
+                        { start: getRandomInt(2, 10) * 10, step: 10, missing: getRandomInt(1, 4) }
+                    ];
+                    const pattern = patterns[getRandomInt(0, patterns.length - 1)];
+                    const seq = [];
+                    for (let i = 0; i < 6; i++) {
+                        if (i === pattern.missing) {
+                            seq.push('__');
+                        } else {
+                            seq.push(pattern.start + (i * pattern.step));
+                        }
+                    }
+                    const answer = pattern.start + (pattern.missing * pattern.step);
+                    return {
+                        question: wordProblemTemplates[6].template.replace('{seq}', seq.join(', ')),
+                        answer: answer,
+                        options: generateOptions(answer, pattern.step, answer + 15)
+                    };
+                }
+            },
+            // Address/recognition
+            {
+                template: "{name} lives at {num} {street}. Which number does {he} live at?",
+                generate: () => {
+                    const names = ['Sarah', 'Ali', 'John', 'Mei', 'Tim'];
+                    const streets = ['Orchard Road', 'Main Street', 'Park Lane', 'River Road', 'Hill Street'];
+                    const num = getRandomInt(5, 50);
+                    const name = names[getRandomInt(0, names.length - 1)];
+                    const street = streets[getRandomInt(0, streets.length - 1)];
+                    const he = name.charAt(name.length - 1) === 'h' ? 'she' : 'he';
+                    return {
+                        question: wordProblemTemplates[7].template.replace('{name}', name).replace('{num}', num).replace('{street}', street).replace('{he}', he),
+                        answer: num,
+                        options: generateOptions(num, 1, num + 10)
+                    };
+                }
+            }
+        ];
+
+        // Generate multiple choice options (1 correct + 3 wrong)
+        function generateOptions(correct, minWrong, maxWrong) {
+            const options = new Set();
+            options.add(correct);
+            
+            while (options.size < 4) {
+                const offset = getRandomInt(-10, 10);
+                const wrong = correct + offset;
+                if (wrong > 0 && wrong !== correct && wrong <= maxWrong) {
+                    options.add(wrong);
+                }
+            }
+            
+            // Convert to array and shuffle
+            const arr = Array.from(options);
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = getRandomInt(0, i);
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            
+            return arr;
+        }
+
+        function generateWordProblem() {
+            const template = wordProblemTemplates[getRandomInt(0, wordProblemTemplates.length - 1)];
+            return template.generate();
+        }
+
         function generateProblem() {
             const difficulty = document.getElementById('difficulty').value;
             
-            if (currentMode === 'decimal') {
+            if (currentMode === 'word') {
+                currentProblem = generateWordProblem();
+            } else if (currentMode === 'decimal') {
                 currentProblem = generateDecimalProblem(difficulty);
             } else if (currentMode === 'multiply') {
                 currentProblem = generateMultiplyProblem(difficulty);
@@ -650,18 +859,76 @@
                 currentProblem = generateOrderOpsProblem(difficulty);
             }
 
-            if (currentMode === 'order_ops') {
+            if (currentMode === 'word') {
+                // Display word problem with multiple choice
+                document.getElementById('problem').textContent = currentProblem.question;
+                document.getElementById('hint').textContent = 'Select the correct answer:';
+                document.getElementById('multipleChoice').style.display = 'grid';
+                document.getElementById('inputArea').style.display = 'none';
+                
+                // Generate multiple choice buttons
+                const mcDiv = document.getElementById('multipleChoice');
+                mcDiv.innerHTML = '';
+                const letters = ['A', 'B', 'C', 'D'];
+                currentProblem.options.forEach((opt, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn';
+                    btn.textContent = `${letters[idx]}. ${opt}`;
+                    btn.onclick = () => checkWordAnswer(opt, btn);
+                    mcDiv.appendChild(btn);
+                });
+            } else if (currentMode === 'order_ops') {
                 document.getElementById('problem').textContent = `${currentProblem.expression} = ?`;
+                document.getElementById('hint').textContent = 'Enter your answer below';
+                document.getElementById('multipleChoice').style.display = 'none';
+                document.getElementById('inputArea').style.display = 'block';
+                document.getElementById('answerInput').value = '';
             } else {
                 document.getElementById('problem').textContent =
                     `${currentProblem.num1} ${currentProblem.operator} ${currentProblem.num2} = ?`;
+                document.getElementById('hint').textContent = 'Enter your answer below';
+                document.getElementById('multipleChoice').style.display = 'none';
+                document.getElementById('inputArea').style.display = 'block';
+                document.getElementById('answerInput').value = '';
             }
-            document.getElementById('answerInput').value = '';
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('nextBtn').style.display = 'none';
             document.getElementById('animationArea').innerHTML = '';
             
             if (animationTimeout) clearTimeout(animationTimeout);
+        }
+        
+        function checkWordAnswer(selected, btn) {
+            // Disable all buttons
+            const buttons = document.querySelectorAll('.choice-btn');
+            buttons.forEach(b => b.disabled = true);
+            
+            score.total++;
+            
+            if (selected === currentProblem.answer) {
+                // Correct
+                btn.classList.add('correct');
+                score.correct++;
+                document.getElementById('feedback').textContent = '✓ Correct! Well done!';
+                document.getElementById('feedback').style.color = '#22543d';
+                document.getElementById('feedback').style.display = 'block';
+            } else {
+                // Incorrect
+                btn.classList.add('incorrect');
+                document.getElementById('feedback').textContent = `✗ Not quite. The correct answer is ${currentProblem.answer}`;
+                document.getElementById('feedback').style.color = '#742a2a';
+                document.getElementById('feedback').style.display = 'block';
+                
+                // Highlight correct answer
+                buttons.forEach(b => {
+                    if (b.textContent.includes(currentProblem.answer)) {
+                        b.classList.add('correct');
+                    }
+                });
+            }
+            
+            updateScore();
+            document.getElementById('nextBtn').style.display = 'block';
         }
         
         function showAnimation() {
