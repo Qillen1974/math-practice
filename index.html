@@ -305,6 +305,7 @@
             <button class="mode-btn" onclick="setMode('divide')">➗ Division</button>
             <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
             <button class="mode-btn" onclick="setMode('order_ops')">🔢 Order of Ops</button>
+            <button class="mode-btn" onclick="setMode('fractions')">🍕 Fractions</button>
         </div>
         
         <div class="practice-area">
@@ -357,7 +358,8 @@
                     (mode === 'multiply' && text.includes('multiplication')) ||
                     (mode === 'divide' && text.includes('division')) ||
                     (mode === 'decimal_multiply' && text.includes('decimal ×')) ||
-                    (mode === 'order_ops' && text.includes('order'))) {
+                    (mode === 'order_ops' && text.includes('order')) ||
+                    (mode === 'fractions' && text.includes('fractions'))) {
                     btn.classList.add('active');
                 }
             });
@@ -680,6 +682,42 @@
             }
         }
 
+        function generateFractionProblem(difficulty) {
+            let numerator, denominator;
+
+            if (difficulty === 'easy') {
+                // Small denominators (2-5), whole part 1-3
+                denominator = getRandomInt(2, 5);
+                const whole = getRandomInt(1, 3);
+                const remainder = getRandomInt(1, denominator - 1);
+                numerator = whole * denominator + remainder;
+            } else if (difficulty === 'medium') {
+                // Denominators 2-9, whole part 2-5
+                denominator = getRandomInt(2, 9);
+                const whole = getRandomInt(2, 5);
+                const remainder = getRandomInt(1, denominator - 1);
+                numerator = whole * denominator + remainder;
+            } else {
+                // Denominators 2-12, whole part 3-10
+                denominator = getRandomInt(2, 12);
+                const whole = getRandomInt(3, 10);
+                const remainder = getRandomInt(1, denominator - 1);
+                numerator = whole * denominator + remainder;
+            }
+
+            const whole = Math.floor(numerator / denominator);
+            const remainder = numerator % denominator;
+
+            return {
+                numerator: numerator,
+                denominator: denominator,
+                whole: whole,
+                remainder: remainder,
+                answer: `${whole} ${remainder}/${denominator}`,
+                type: 'fractions'
+            };
+        }
+
         // Word problem templates based on numeracy assessment style
         const wordProblemTemplates = [
             // Packing/remaining problems
@@ -857,6 +895,8 @@
                 currentProblem = generateDecimalMultiplyProblem(difficulty);
             } else if (currentMode === 'order_ops') {
                 currentProblem = generateOrderOpsProblem(difficulty);
+            } else if (currentMode === 'fractions') {
+                currentProblem = generateFractionProblem(difficulty);
             }
 
             if (currentMode === 'word') {
@@ -880,6 +920,12 @@
             } else if (currentMode === 'order_ops') {
                 document.getElementById('problem').textContent = `${currentProblem.expression} = ?`;
                 document.getElementById('hint').textContent = 'Enter your answer below';
+                document.getElementById('multipleChoice').style.display = 'none';
+                document.getElementById('inputArea').style.display = 'block';
+                document.getElementById('answerInput').value = '';
+            } else if (currentMode === 'fractions') {
+                document.getElementById('problem').textContent = `Convert ${currentProblem.numerator}/${currentProblem.denominator} to a mixed number`;
+                document.getElementById('hint').textContent = 'Enter as: whole remainder/denominator (e.g. 2 1/3)';
                 document.getElementById('multipleChoice').style.display = 'none';
                 document.getElementById('inputArea').style.display = 'block';
                 document.getElementById('answerInput').value = '';
@@ -945,6 +991,8 @@
                 showDecimalMultiplyAnimation();
             } else if (currentProblem.type === 'order_ops') {
                 showOrderOpsAnimation();
+            } else if (currentProblem.type === 'fractions') {
+                showFractionAnimation();
             }
         }
         
@@ -1212,6 +1260,32 @@
             displayAnimationSteps(steps);
         }
 
+        function showFractionAnimation() {
+            const { numerator, denominator, whole, remainder } = currentProblem;
+
+            let steps = [];
+
+            steps.push(`📝 Convert ${numerator}/${denominator} to a mixed number`);
+            steps.push(``);
+            steps.push(`📝 Step 1: Divide the numerator by the denominator`);
+            steps.push(`   ${numerator} ÷ ${denominator} = ${whole} remainder ${remainder}`);
+            steps.push(``);
+            steps.push(`📝 Step 2: The quotient is the whole number`);
+            steps.push(`   Whole number: ${whole}`);
+            steps.push(``);
+            steps.push(`📝 Step 3: The remainder goes over the denominator`);
+            steps.push(`   Fraction part: ${remainder}/${denominator}`);
+            steps.push(``);
+            steps.push(`📝 Step 4: Write the mixed number`);
+            steps.push(`   ${whole} ${remainder}/${denominator}`);
+            steps.push(``);
+            steps.push(`📝 Check: ${whole} × ${denominator} + ${remainder} = ${whole * denominator} + ${remainder} = ${numerator} ✅`);
+            steps.push(``);
+            steps.push(`🎯 ${numerator}/${denominator} = ${whole} ${remainder}/${denominator}`);
+
+            displayAnimationSteps(steps);
+        }
+
         function displayAnimationSteps(steps) {
             const area = document.getElementById('animationArea');
             area.innerHTML = '';
@@ -1226,22 +1300,44 @@
         }
         
         function checkAnswer() {
-            const userAnswer = parseFloat(document.getElementById('answerInput').value);
+            const rawAnswer = document.getElementById('answerInput').value.trim();
             const feedback = document.getElementById('feedback');
-            
-            if (isNaN(userAnswer)) {
-                feedback.textContent = 'Please enter a number! 📝';
+
+            if (!rawAnswer) {
+                feedback.textContent = 'Please enter an answer! 📝';
                 feedback.className = 'feedback incorrect';
                 feedback.style.display = 'block';
                 return;
             }
-            
+
             score.total++;
-            
-            // Check with 2 decimal places for decimals, exact match for others
-            const correct = (currentProblem.type === 'decimal' || currentProblem.type === 'decimal_multiply')
-                ? Math.abs(userAnswer - currentProblem.answer) < 0.01
-                : userAnswer === currentProblem.answer;
+
+            let correct;
+            if (currentProblem.type === 'fractions') {
+                // Parse "whole remainder/denominator" format e.g. "2 1/3"
+                const match = rawAnswer.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+                if (match) {
+                    const w = parseInt(match[1]);
+                    const r = parseInt(match[2]);
+                    const d = parseInt(match[3]);
+                    correct = (w === currentProblem.whole && r === currentProblem.remainder && d === currentProblem.denominator);
+                } else {
+                    correct = false;
+                }
+            } else {
+                const userAnswer = parseFloat(rawAnswer);
+                if (isNaN(userAnswer)) {
+                    feedback.textContent = 'Please enter a number! 📝';
+                    feedback.className = 'feedback incorrect';
+                    feedback.style.display = 'block';
+                    score.total--;
+                    return;
+                }
+                // Check with 2 decimal places for decimals, exact match for others
+                correct = (currentProblem.type === 'decimal' || currentProblem.type === 'decimal_multiply')
+                    ? Math.abs(userAnswer - currentProblem.answer) < 0.01
+                    : userAnswer === currentProblem.answer;
+            }
             
             if (correct) {
                 score.correct++;
