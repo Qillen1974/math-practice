@@ -924,7 +924,7 @@
                 document.getElementById('inputArea').style.display = 'block';
                 document.getElementById('answerInput').value = '';
             } else if (currentMode === 'fractions') {
-                document.getElementById('problem').textContent = `Convert ${currentProblem.numerator}/${currentProblem.denominator} to a mixed number`;
+                document.getElementById('problem').textContent = `Convert ${currentProblem.numerator}/${currentProblem.denominator} to a proper fraction`;
                 document.getElementById('hint').textContent = 'Enter as: whole remainder/denominator (e.g. 2 1/3)';
                 document.getElementById('multipleChoice').style.display = 'none';
                 document.getElementById('inputArea').style.display = 'block';
@@ -1265,7 +1265,7 @@
 
             let steps = [];
 
-            steps.push(`📝 Convert ${numerator}/${denominator} to a mixed number`);
+            steps.push(`📝 Convert ${numerator}/${denominator} to a proper fraction`);
             steps.push(``);
             steps.push(`📝 Step 1: Divide the numerator by the denominator`);
             steps.push(`   ${numerator} ÷ ${denominator} = ${whole} remainder ${remainder}`);
@@ -1276,7 +1276,7 @@
             steps.push(`📝 Step 3: The remainder goes over the denominator`);
             steps.push(`   Fraction part: ${remainder}/${denominator}`);
             steps.push(``);
-            steps.push(`📝 Step 4: Write the mixed number`);
+            steps.push(`📝 Step 4: Write the proper fraction`);
             steps.push(`   ${whole} ${remainder}/${denominator}`);
             steps.push(``);
             steps.push(`📝 Check: ${whole} × ${denominator} + ${remainder} = ${whole * denominator} + ${remainder} = ${numerator} ✅`);
