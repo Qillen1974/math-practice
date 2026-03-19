@@ -344,6 +344,7 @@
             <button class="sub-btn active" onclick="setFractionSub('addition')">➕ Addition</button>
             <button class="sub-btn" onclick="setFractionSub('subtraction')">➖ Subtraction</button>
             <button class="sub-btn" onclick="setFractionSub('conversion')">🔄 Conversion</button>
+            <button class="sub-btn" onclick="setFractionSub('to_decimal')">🔢 To Decimal</button>
         </div>
         
         <div class="practice-area">
@@ -847,6 +848,84 @@
             };
         }
 
+        function generateFractionToDecimalProblem(difficulty) {
+            let numerator, denominator;
+
+            if (difficulty === 'easy') {
+                // Denominators that give clean decimals: 2, 4, 5, 10
+                const cleanDenoms = [2, 4, 5, 10];
+                denominator = cleanDenoms[getRandomInt(0, cleanDenoms.length - 1)];
+                numerator = getRandomInt(1, denominator * 3);
+            } else if (difficulty === 'medium') {
+                // Include 8, 20, 25 for more decimal places
+                const cleanDenoms = [2, 4, 5, 8, 10, 20, 25];
+                denominator = cleanDenoms[getRandomInt(0, cleanDenoms.length - 1)];
+                numerator = getRandomInt(1, denominator * 3);
+            } else {
+                // Any denominator, may produce repeating decimals
+                denominator = getRandomInt(2, 12);
+                numerator = getRandomInt(1, denominator * 4);
+            }
+
+            // Avoid trivial cases where numerator = denominator
+            if (numerator === denominator) numerator += 1;
+
+            const rawResult = numerator / denominator;
+            // Round to 4 decimal places, trim trailing zeros
+            let answer;
+            // Check if it's a clean terminating decimal
+            const rounded = parseFloat(rawResult.toFixed(4));
+            answer = String(rounded);
+
+            // For repeating decimals, round to 2 dp
+            const check2 = parseFloat(rawResult.toFixed(2));
+            const check4 = parseFloat(rawResult.toFixed(4));
+            const isRepeating = Math.abs(check2 - check4) > 0.0001;
+
+            if (isRepeating) {
+                answer = rawResult.toFixed(2);
+            }
+
+            // Build long division steps
+            const divSteps = [];
+            let current = numerator;
+            let quotientParts = [];
+            const wholePart = Math.floor(current / denominator);
+            let remainder = current % denominator;
+
+            if (wholePart > 0) {
+                quotientParts.push(String(wholePart));
+                divSteps.push({ dividend: current, digit: wholePart, remainder: remainder, desc: `${current} ÷ ${denominator} = ${wholePart} remainder ${remainder}` });
+            } else {
+                quotientParts.push('0');
+                divSteps.push({ dividend: current, digit: 0, remainder: remainder, desc: `${current} ÷ ${denominator} = 0 remainder ${remainder}` });
+            }
+
+            // Decimal part (up to 4 digits)
+            if (remainder > 0) {
+                quotientParts.push('.');
+                for (let i = 0; i < 4; i++) {
+                    current = remainder * 10;
+                    const digit = Math.floor(current / denominator);
+                    remainder = current % denominator;
+                    quotientParts.push(String(digit));
+                    divSteps.push({ dividend: current, digit: digit, remainder: remainder, desc: `Bring down 0: ${current} ÷ ${denominator} = ${digit} remainder ${remainder}` });
+                    if (remainder === 0) break;
+                }
+            }
+
+            return {
+                numerator,
+                denominator,
+                answer: String(parseFloat(answer)),
+                divSteps,
+                isRepeating,
+                rawResult: rounded,
+                type: 'fractions',
+                subType: 'to_decimal'
+            };
+        }
+
         // Word problem templates based on numeracy assessment style
         const wordProblemTemplates = [
             // Packing/remaining problems
@@ -1027,6 +1106,8 @@
             } else if (currentMode === 'fractions') {
                 if (fractionSub === 'conversion') {
                     currentProblem = generateFractionProblem(difficulty);
+                } else if (fractionSub === 'to_decimal') {
+                    currentProblem = generateFractionToDecimalProblem(difficulty);
                 } else {
                     currentProblem = generateFractionArithProblem(difficulty, fractionSub === 'addition' ? '+' : '-');
                 }
@@ -1060,6 +1141,9 @@
                 if (currentProblem.subType === 'conversion') {
                     document.getElementById('problem').textContent = `Convert ${currentProblem.numerator}/${currentProblem.denominator} to a proper fraction`;
                     document.getElementById('hint').textContent = 'Enter as: whole remainder/denominator (e.g. 2 1/3)';
+                } else if (currentProblem.subType === 'to_decimal') {
+                    document.getElementById('problem').textContent = `${currentProblem.numerator}/${currentProblem.denominator} = ?`;
+                    document.getElementById('hint').textContent = `Divide ${currentProblem.numerator} by ${currentProblem.denominator}. Enter as decimal (e.g. 0.75)` + (currentProblem.isRepeating ? ' — round to 2 decimal places' : '');
                 } else {
                     document.getElementById('problem').textContent = `${currentProblem.n1}/${currentProblem.d1} ${currentProblem.operator} ${currentProblem.n2}/${currentProblem.d2} = ?`;
                     if (currentProblem.isImproper) {
@@ -1135,6 +1219,8 @@
                 showOrderOpsAnimation();
             } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'conversion') {
                 showFractionAnimation();
+            } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'to_decimal') {
+                showFractionToDecimalAnimation();
             } else if (currentProblem.type === 'fractions') {
                 showFractionArithAnimation();
             }
@@ -1483,6 +1569,45 @@
             displayAnimationSteps(steps);
         }
 
+        function showFractionToDecimalAnimation() {
+            const p = currentProblem;
+            let steps = [];
+
+            steps.push(`📝 Convert ${p.numerator}/${p.denominator} to a decimal`);
+            steps.push(``);
+            steps.push(`📝 A fraction means division!`);
+            steps.push(`   ${p.numerator}/${p.denominator} = ${p.numerator} ÷ ${p.denominator}`);
+            steps.push(``);
+            steps.push(`📝 Long division: ${p.numerator} ÷ ${p.denominator}`);
+            steps.push(``);
+
+            for (let i = 0; i < p.divSteps.length; i++) {
+                const s = p.divSteps[i];
+                const stepNum = i + 1;
+                if (i === 0) {
+                    steps.push(`📝 Step ${stepNum}: ${s.desc}`);
+                } else {
+                    if (i === 1) {
+                        steps.push(`📝 Step ${stepNum}: Add decimal point, then continue dividing`);
+                    }
+                    steps.push(`   ${s.desc}`);
+                }
+                if (s.remainder === 0 && i > 0) {
+                    steps.push(`   No remainder — division is complete!`);
+                }
+            }
+
+            if (p.isRepeating) {
+                steps.push(``);
+                steps.push(`📝 This is a repeating decimal — round to 2 decimal places`);
+            }
+
+            steps.push(``);
+            steps.push(`🎯 ${p.numerator}/${p.denominator} = ${p.answer}`);
+
+            displayAnimationSteps(steps);
+        }
+
         function displayAnimationSteps(steps) {
             const area = document.getElementById('animationArea');
             area.innerHTML = '';
@@ -1518,7 +1643,16 @@
                 // Try whole number e.g. "3"
                 const wholeMatch = rawAnswer.match(/^(\d+)$/);
 
-                if (currentProblem.subType === 'conversion') {
+                if (currentProblem.subType === 'to_decimal') {
+                    const userVal = parseFloat(rawAnswer);
+                    if (isNaN(userVal)) {
+                        correct = false;
+                    } else if (currentProblem.isRepeating) {
+                        correct = Math.abs(userVal - currentProblem.rawResult) < 0.01;
+                    } else {
+                        correct = Math.abs(userVal - currentProblem.rawResult) < 0.0001;
+                    }
+                } else if (currentProblem.subType === 'conversion') {
                     if (mixedMatch) {
                         const w = parseInt(mixedMatch[1]);
                         const r = parseInt(mixedMatch[2]);
