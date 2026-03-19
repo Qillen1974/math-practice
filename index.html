@@ -289,6 +289,38 @@
             font-size: 1rem;
             margin-top: 10px;
         }
+
+        .sub-selector {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #edf2f7;
+            flex-wrap: wrap;
+        }
+
+        .sub-btn {
+            padding: 8px 18px;
+            font-size: 0.95rem;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            cursor: pointer;
+            background: white;
+            transition: all 0.3s;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .sub-btn.active {
+            background: #e53e3e;
+            color: white;
+            border-color: #e53e3e;
+        }
+
+        .sub-btn:not(.active):hover {
+            background: #f7fafc;
+            border-color: #a0aec0;
+        }
     </style>
 </head>
 <body>
@@ -306,6 +338,12 @@
             <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
             <button class="mode-btn" onclick="setMode('order_ops')">🔢 Order of Ops</button>
             <button class="mode-btn" onclick="setMode('fractions')">🍕 Fractions</button>
+        </div>
+
+        <div class="sub-selector" id="fractionSubSelector" style="display: none;">
+            <button class="sub-btn active" onclick="setFractionSub('addition')">➕ Addition</button>
+            <button class="sub-btn" onclick="setFractionSub('subtraction')">➖ Subtraction</button>
+            <button class="sub-btn" onclick="setFractionSub('conversion')">🔄 Conversion</button>
         </div>
         
         <div class="practice-area">
@@ -347,6 +385,7 @@
         let currentProblem = {};
         let score = { correct: 0, total: 0 };
         let animationTimeout = null;
+        let fractionSub = 'addition';
         
         function setMode(mode) {
             currentMode = mode;
@@ -363,6 +402,14 @@
                     btn.classList.add('active');
                 }
             });
+            document.getElementById('fractionSubSelector').style.display = mode === 'fractions' ? 'flex' : 'none';
+            generateProblem();
+        }
+
+        function setFractionSub(sub) {
+            fractionSub = sub;
+            document.querySelectorAll('.sub-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
             generateProblem();
         }
         
@@ -714,7 +761,89 @@
                 whole: whole,
                 remainder: remainder,
                 answer: `${whole} ${remainder}/${denominator}`,
-                type: 'fractions'
+                type: 'fractions',
+                subType: 'conversion'
+            };
+        }
+
+        function gcd(a, b) {
+            a = Math.abs(a); b = Math.abs(b);
+            while (b) { [a, b] = [b, a % b]; }
+            return a;
+        }
+
+        function lcm(a, b) {
+            return (a * b) / gcd(a, b);
+        }
+
+        function generateFractionArithProblem(difficulty, operator) {
+            let d1, d2, n1, n2;
+
+            if (difficulty === 'easy') {
+                // Same denominator
+                d1 = getRandomInt(2, 6);
+                d2 = d1;
+                n1 = getRandomInt(1, d1 - 1);
+                n2 = getRandomInt(1, d2 - 1);
+            } else if (difficulty === 'medium') {
+                // One denominator is multiple of other
+                d1 = getRandomInt(2, 6);
+                d2 = d1 * getRandomInt(2, 3);
+                n1 = getRandomInt(1, d1 - 1);
+                n2 = getRandomInt(1, d2 - 1);
+            } else {
+                // Different denominators
+                d1 = getRandomInt(2, 9);
+                d2 = getRandomInt(2, 9);
+                while (d2 === d1) d2 = getRandomInt(2, 9);
+                n1 = getRandomInt(1, d1 - 1);
+                n2 = getRandomInt(1, d2 - 1);
+            }
+
+            // For subtraction, ensure result is positive
+            if (operator === '-') {
+                const val1 = n1 / d1;
+                const val2 = n2 / d2;
+                if (val1 < val2) {
+                    [n1, d1, n2, d2] = [n2, d2, n1, d1];
+                }
+            }
+
+            const commonDenom = lcm(d1, d2);
+            const newN1 = n1 * (commonDenom / d1);
+            const newN2 = n2 * (commonDenom / d2);
+            const resultNum = operator === '+' ? newN1 + newN2 : newN1 - newN2;
+            const resultDenom = commonDenom;
+
+            // Simplify
+            const g = gcd(Math.abs(resultNum), resultDenom);
+            const simpNum = resultNum / g;
+            const simpDenom = resultDenom / g;
+
+            // Check if improper
+            const isImproper = Math.abs(simpNum) >= simpDenom;
+            let answer;
+            if (isImproper) {
+                const whole = Math.floor(simpNum / simpDenom);
+                const rem = simpNum % simpDenom;
+                answer = rem === 0 ? `${whole}` : `${whole} ${rem}/${simpDenom}`;
+            } else {
+                answer = simpDenom === 1 ? `${simpNum}` : `${simpNum}/${simpDenom}`;
+            }
+
+            return {
+                n1, d1, n2, d2,
+                operator,
+                commonDenom,
+                newN1, newN2,
+                resultNum, resultDenom,
+                simpNum, simpDenom,
+                isImproper,
+                whole: isImproper ? Math.floor(simpNum / simpDenom) : 0,
+                remainder: isImproper ? simpNum % simpDenom : simpNum,
+                answer,
+                type: 'fractions',
+                subType: operator === '+' ? 'addition' : 'subtraction'
             };
         }
 
@@ -896,7 +1025,11 @@
             } else if (currentMode === 'order_ops') {
                 currentProblem = generateOrderOpsProblem(difficulty);
             } else if (currentMode === 'fractions') {
-                currentProblem = generateFractionProblem(difficulty);
+                if (fractionSub === 'conversion') {
+                    currentProblem = generateFractionProblem(difficulty);
+                } else {
+                    currentProblem = generateFractionArithProblem(difficulty, fractionSub === 'addition' ? '+' : '-');
+                }
             }
 
             if (currentMode === 'word') {
@@ -924,8 +1057,17 @@
                 document.getElementById('inputArea').style.display = 'block';
                 document.getElementById('answerInput').value = '';
             } else if (currentMode === 'fractions') {
-                document.getElementById('problem').textContent = `Convert ${currentProblem.numerator}/${currentProblem.denominator} to a proper fraction`;
-                document.getElementById('hint').textContent = 'Enter as: whole remainder/denominator (e.g. 2 1/3)';
+                if (currentProblem.subType === 'conversion') {
+                    document.getElementById('problem').textContent = `Convert ${currentProblem.numerator}/${currentProblem.denominator} to a proper fraction`;
+                    document.getElementById('hint').textContent = 'Enter as: whole remainder/denominator (e.g. 2 1/3)';
+                } else {
+                    document.getElementById('problem').textContent = `${currentProblem.n1}/${currentProblem.d1} ${currentProblem.operator} ${currentProblem.n2}/${currentProblem.d2} = ?`;
+                    if (currentProblem.isImproper) {
+                        document.getElementById('hint').textContent = 'Simplify and convert to proper fraction (e.g. 2 1/3)';
+                    } else {
+                        document.getElementById('hint').textContent = 'Simplify your answer (e.g. 3/4)';
+                    }
+                }
                 document.getElementById('multipleChoice').style.display = 'none';
                 document.getElementById('inputArea').style.display = 'block';
                 document.getElementById('answerInput').value = '';
@@ -991,8 +1133,10 @@
                 showDecimalMultiplyAnimation();
             } else if (currentProblem.type === 'order_ops') {
                 showOrderOpsAnimation();
-            } else if (currentProblem.type === 'fractions') {
+            } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'conversion') {
                 showFractionAnimation();
+            } else if (currentProblem.type === 'fractions') {
+                showFractionArithAnimation();
             }
         }
         
@@ -1286,6 +1430,59 @@
             displayAnimationSteps(steps);
         }
 
+        function showFractionArithAnimation() {
+            const p = currentProblem;
+            const opWord = p.operator === '+' ? 'Add' : 'Subtract';
+            let steps = [];
+
+            steps.push(`📝 ${p.n1}/${p.d1} ${p.operator} ${p.n2}/${p.d2}`);
+            steps.push(``);
+
+            if (p.d1 === p.d2) {
+                steps.push(`📝 Step 1: Denominators are the same (${p.d1})`);
+                steps.push(`   ${opWord} the numerators: ${p.n1} ${p.operator} ${p.n2} = ${p.resultNum}`);
+                steps.push(``);
+                steps.push(`📝 Step 2: Keep the denominator`);
+                steps.push(`   Result: ${p.resultNum}/${p.resultDenom}`);
+            } else {
+                steps.push(`📝 Step 1: Find the common denominator`);
+                steps.push(`   LCD of ${p.d1} and ${p.d2} = ${p.commonDenom}`);
+                steps.push(``);
+                steps.push(`📝 Step 2: Convert both fractions`);
+                steps.push(`   ${p.n1}/${p.d1} = ${p.newN1}/${p.commonDenom}  (multiply top and bottom by ${p.commonDenom / p.d1})`);
+                steps.push(`   ${p.n2}/${p.d2} = ${p.newN2}/${p.commonDenom}  (multiply top and bottom by ${p.commonDenom / p.d2})`);
+                steps.push(``);
+                steps.push(`📝 Step 3: ${opWord} the numerators`);
+                steps.push(`   ${p.newN1} ${p.operator} ${p.newN2} = ${p.resultNum}`);
+                steps.push(`   Result: ${p.resultNum}/${p.resultDenom}`);
+            }
+
+            // Simplify step
+            const g = gcd(Math.abs(p.resultNum), p.resultDenom);
+            if (g > 1) {
+                steps.push(``);
+                steps.push(`📝 Step ${p.d1 === p.d2 ? 3 : 4}: Simplify`);
+                steps.push(`   ${p.resultNum}/${p.resultDenom} ÷ ${g}/${g} = ${p.simpNum}/${p.simpDenom}`);
+            }
+
+            // Convert if improper
+            if (p.isImproper) {
+                steps.push(``);
+                steps.push(`📝 Step ${p.d1 === p.d2 ? (g > 1 ? 4 : 3) : (g > 1 ? 5 : 4)}: Convert to proper fraction`);
+                steps.push(`   ${p.simpNum} ÷ ${p.simpDenom} = ${p.whole} remainder ${p.remainder}`);
+                if (p.remainder === 0) {
+                    steps.push(`   Answer: ${p.whole}`);
+                } else {
+                    steps.push(`   Answer: ${p.whole} ${p.remainder}/${p.simpDenom}`);
+                }
+            }
+
+            steps.push(``);
+            steps.push(`🎯 ${p.n1}/${p.d1} ${p.operator} ${p.n2}/${p.d2} = ${p.answer}`);
+
+            displayAnimationSteps(steps);
+        }
+
         function displayAnimationSteps(steps) {
             const area = document.getElementById('animationArea');
             area.innerHTML = '';
@@ -1314,15 +1511,53 @@
 
             let correct;
             if (currentProblem.type === 'fractions') {
-                // Parse "whole remainder/denominator" format e.g. "2 1/3"
-                const match = rawAnswer.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-                if (match) {
-                    const w = parseInt(match[1]);
-                    const r = parseInt(match[2]);
-                    const d = parseInt(match[3]);
-                    correct = (w === currentProblem.whole && r === currentProblem.remainder && d === currentProblem.denominator);
+                // Try "whole remainder/denominator" format e.g. "2 1/3"
+                const mixedMatch = rawAnswer.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+                // Try "numerator/denominator" format e.g. "3/4"
+                const fracMatch = rawAnswer.match(/^(\d+)\/(\d+)$/);
+                // Try whole number e.g. "3"
+                const wholeMatch = rawAnswer.match(/^(\d+)$/);
+
+                if (currentProblem.subType === 'conversion') {
+                    if (mixedMatch) {
+                        const w = parseInt(mixedMatch[1]);
+                        const r = parseInt(mixedMatch[2]);
+                        const d = parseInt(mixedMatch[3]);
+                        correct = (w === currentProblem.whole && r === currentProblem.remainder && d === currentProblem.denominator);
+                    } else {
+                        correct = false;
+                    }
                 } else {
-                    correct = false;
+                    // Addition/subtraction: accept simplified fraction, mixed number, or whole number
+                    if (mixedMatch) {
+                        const w = parseInt(mixedMatch[1]);
+                        const r = parseInt(mixedMatch[2]);
+                        const d = parseInt(mixedMatch[3]);
+                        // Convert user answer to improper: (w*d + r) / d, then simplify
+                        const userNum = w * d + r;
+                        const userDenom = d;
+                        const g1 = gcd(userNum, userDenom);
+                        correct = (userNum / g1 === currentProblem.simpNum && userDenom / g1 === currentProblem.simpDenom) ||
+                                  (w === currentProblem.whole && r === currentProblem.remainder && d === currentProblem.simpDenom);
+                    } else if (fracMatch) {
+                        const n = parseInt(fracMatch[1]);
+                        const d = parseInt(fracMatch[2]);
+                        const g1 = gcd(n, d);
+                        correct = (n / g1 === currentProblem.simpNum && d / g1 === currentProblem.simpDenom);
+                    } else if (wholeMatch) {
+                        const w = parseInt(wholeMatch[1]);
+                        correct = (currentProblem.simpDenom === 1 && w === currentProblem.simpNum) ||
+                                  (currentProblem.remainder === 0 && w === currentProblem.whole);
+                    } else {
+                        correct = false;
+                    }
+
+                    // If answer is improper fraction but user gave unsimplified proper form, reject
+                    if (correct && currentProblem.isImproper && fracMatch && !wholeMatch) {
+                        const n = parseInt(fracMatch[1]);
+                        const d = parseInt(fracMatch[2]);
+                        if (n >= d) correct = false; // Must convert to proper
+                    }
                 }
             } else {
                 const userAnswer = parseFloat(rawAnswer);
