@@ -345,6 +345,7 @@
             <button class="sub-btn" onclick="setFractionSub('subtraction')">➖ Subtraction</button>
             <button class="sub-btn" onclick="setFractionSub('conversion')">🔄 Conversion</button>
             <button class="sub-btn" onclick="setFractionSub('to_decimal')">🔢 To Decimal</button>
+            <button class="sub-btn" onclick="setFractionSub('simplify')">✂️ Simplify</button>
         </div>
         
         <div class="practice-area">
@@ -777,6 +778,50 @@
             return (a * b) / gcd(a, b);
         }
 
+        function generateFractionSimplifyProblem(difficulty) {
+            let simpNum, simpDenom, multiplier;
+
+            if (difficulty === 'easy') {
+                // Small simplified fractions, multiplied by 2-4
+                simpDenom = getRandomInt(2, 5);
+                simpNum = getRandomInt(1, simpDenom - 1);
+                while (gcd(simpNum, simpDenom) > 1) {
+                    simpNum = getRandomInt(1, simpDenom - 1);
+                }
+                multiplier = getRandomInt(2, 4);
+            } else if (difficulty === 'medium') {
+                // Larger fractions, multiplied by 2-6
+                simpDenom = getRandomInt(2, 8);
+                simpNum = getRandomInt(1, simpDenom - 1);
+                while (gcd(simpNum, simpDenom) > 1) {
+                    simpNum = getRandomInt(1, simpDenom - 1);
+                }
+                multiplier = getRandomInt(2, 6);
+            } else {
+                // Larger fractions, bigger multipliers
+                simpDenom = getRandomInt(2, 12);
+                simpNum = getRandomInt(1, simpDenom - 1);
+                while (gcd(simpNum, simpDenom) > 1) {
+                    simpNum = getRandomInt(1, simpDenom - 1);
+                }
+                multiplier = getRandomInt(3, 9);
+            }
+
+            const bigNum = simpNum * multiplier;
+            const bigDenom = simpDenom * multiplier;
+
+            return {
+                numerator: bigNum,
+                denominator: bigDenom,
+                simpNum: simpNum,
+                simpDenom: simpDenom,
+                gcf: multiplier,
+                answer: `${simpNum}/${simpDenom}`,
+                type: 'fractions',
+                subType: 'simplify'
+            };
+        }
+
         function generateFractionArithProblem(difficulty, operator) {
             let d1, d2, n1, n2;
 
@@ -1108,6 +1153,8 @@
                     currentProblem = generateFractionProblem(difficulty);
                 } else if (fractionSub === 'to_decimal') {
                     currentProblem = generateFractionToDecimalProblem(difficulty);
+                } else if (fractionSub === 'simplify') {
+                    currentProblem = generateFractionSimplifyProblem(difficulty);
                 } else {
                     currentProblem = generateFractionArithProblem(difficulty, fractionSub === 'addition' ? '+' : '-');
                 }
@@ -1141,6 +1188,9 @@
                 if (currentProblem.subType === 'conversion') {
                     document.getElementById('problem').textContent = `Convert ${currentProblem.numerator}/${currentProblem.denominator} to a proper fraction`;
                     document.getElementById('hint').textContent = 'Enter as: whole remainder/denominator (e.g. 2 1/3)';
+                } else if (currentProblem.subType === 'simplify') {
+                    document.getElementById('problem').textContent = `Simplify ${currentProblem.numerator}/${currentProblem.denominator}`;
+                    document.getElementById('hint').textContent = 'Reduce to simplest form (e.g. 3/4)';
                 } else if (currentProblem.subType === 'to_decimal') {
                     document.getElementById('problem').textContent = `${currentProblem.numerator}/${currentProblem.denominator} = ?`;
                     document.getElementById('hint').textContent = `Divide ${currentProblem.numerator} by ${currentProblem.denominator}. Enter as decimal (e.g. 0.75)` + (currentProblem.isRepeating ? ' — round to 2 decimal places' : '');
@@ -1219,6 +1269,8 @@
                 showOrderOpsAnimation();
             } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'conversion') {
                 showFractionAnimation();
+            } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'simplify') {
+                showFractionSimplifyAnimation();
             } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'to_decimal') {
                 showFractionToDecimalAnimation();
             } else if (currentProblem.type === 'fractions') {
@@ -1490,6 +1542,35 @@
             displayAnimationSteps(steps);
         }
 
+        function showFractionSimplifyAnimation() {
+            const { numerator, denominator, simpNum, simpDenom, gcf } = currentProblem;
+
+            let steps = [];
+
+            steps.push(`📝 Simplify ${numerator}/${denominator}`);
+            steps.push(``);
+            steps.push(`📝 Step 1: Find the GCF (Greatest Common Factor)`);
+            steps.push(`   List factors of ${numerator}: ${getFactors(numerator).join(', ')}`);
+            steps.push(`   List factors of ${denominator}: ${getFactors(denominator).join(', ')}`);
+            steps.push(`   GCF = ${gcf}`);
+            steps.push(``);
+            steps.push(`📝 Step 2: Divide both by the GCF (${gcf})`);
+            steps.push(`   ${numerator} ÷ ${gcf} = ${simpNum}`);
+            steps.push(`   ${denominator} ÷ ${gcf} = ${simpDenom}`);
+            steps.push(``);
+            steps.push(`✅ ${numerator}/${denominator} = ${simpNum}/${simpDenom}`);
+
+            displayAnimationSteps(steps);
+        }
+
+        function getFactors(n) {
+            const factors = [];
+            for (let i = 1; i <= n; i++) {
+                if (n % i === 0) factors.push(i);
+            }
+            return factors;
+        }
+
         function showFractionAnimation() {
             const { numerator, denominator, whole, remainder } = currentProblem;
 
@@ -1643,7 +1724,16 @@
                 // Try whole number e.g. "3"
                 const wholeMatch = rawAnswer.match(/^(\d+)$/);
 
-                if (currentProblem.subType === 'to_decimal') {
+                if (currentProblem.subType === 'simplify') {
+                    const fracMatch = rawAnswer.match(/^(\d+)\/(\d+)$/);
+                    if (fracMatch) {
+                        const n = parseInt(fracMatch[1]);
+                        const d = parseInt(fracMatch[2]);
+                        correct = (n === currentProblem.simpNum && d === currentProblem.simpDenom);
+                    } else {
+                        correct = false;
+                    }
+                } else if (currentProblem.subType === 'to_decimal') {
                     const userVal = parseFloat(rawAnswer);
                     if (isNaN(userVal)) {
                         correct = false;
