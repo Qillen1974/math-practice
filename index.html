@@ -478,6 +478,7 @@
                     given: String(given),
                     correct: !!correct,
                     ms_taken: problemStartedAt > 0 ? (Date.now() - problemStartedAt) : null,
+                    daily: dailySession.active,
                 };
                 fetch('/api/log', {
                     method: 'POST',

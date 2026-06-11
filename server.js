@@ -43,9 +43,13 @@ const hasTopic = db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('attemp
 if (!hasTopic) db.exec(`ALTER TABLE attempts ADD COLUMN topic TEXT`);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_attempts_topic ON attempts(topic)`);
 
+// Migration: daily flag (1 = attempt made inside a Daily Session, 0 = free practice)
+const hasDaily = db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('attempts') WHERE name = 'daily'`).get().n > 0;
+if (!hasDaily) db.exec(`ALTER TABLE attempts ADD COLUMN daily INTEGER NOT NULL DEFAULT 0`);
+
 const insertAttempt = db.prepare(
-  `INSERT INTO attempts (ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken)
-   VALUES (@ts, @mode, @fraction_sub, @topic, @problem_text, @expected, @given, @correct, @ms_taken)`
+  `INSERT INTO attempts (ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken, daily)
+   VALUES (@ts, @mode, @fraction_sub, @topic, @problem_text, @expected, @given, @correct, @ms_taken, @daily)`
 );
 
 const app = express();
@@ -71,6 +75,7 @@ app.post('/api/log', (req, res) => {
       given: clip(b.given, 128),
       correct: b.correct ? 1 : 0,
       ms_taken: Number.isFinite(b.ms_taken) ? Math.max(0, Math.min(600000, b.ms_taken | 0)) : null,
+      daily: b.daily ? 1 : 0,
     });
     res.json({ ok: true });
   } catch (e) {
@@ -131,13 +136,17 @@ app.get('/api/parent/attempts', requireParent, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
   const mode = req.query.mode && typeof req.query.mode === 'string' ? req.query.mode : null;
   const since = parseInt(req.query.since) || 0;
+  const until = parseInt(req.query.until) || 0;
   const onlyWrong = req.query.only === 'wrong';
+  const onlyDaily = req.query.daily === '1';
   const topic = req.query.topic && typeof req.query.topic === 'string' ? req.query.topic : null;
-  let sql = 'SELECT id, ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken FROM attempts WHERE ts >= ?';
+  let sql = 'SELECT id, ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken, daily FROM attempts WHERE ts >= ?';
   const args = [since];
+  if (until > 0) { sql += ' AND ts < ?'; args.push(until); }
   if (mode) { sql += ' AND mode = ?'; args.push(mode); }
   if (topic) { sql += ' AND topic = ?'; args.push(topic); }
   if (onlyWrong) sql += ' AND correct = 0';
+  if (onlyDaily) sql += ' AND daily = 1';
   sql += ' ORDER BY ts DESC LIMIT ?';
   args.push(limit);
   res.json({ attempts: db.prepare(sql).all(...args) });
@@ -145,19 +154,25 @@ app.get('/api/parent/attempts', requireParent, (req, res) => {
 
 app.get('/api/parent/summary', requireParent, (req, res) => {
   const since = parseInt(req.query.since) || 0;
+  const until = parseInt(req.query.until) || 0;
+  const onlyDaily = req.query.daily === '1';
+  let where = 'ts >= ?';
+  const args = [since];
+  if (until > 0) { where += ' AND ts < ?'; args.push(until); }
+  if (onlyDaily) where += ' AND daily = 1';
   const overall = db.prepare(
-    'SELECT COUNT(*) AS n, SUM(correct) AS got FROM attempts WHERE ts >= ?'
-  ).get(since);
+    `SELECT COUNT(*) AS n, SUM(correct) AS got FROM attempts WHERE ${where}`
+  ).get(...args);
   const byMode = db.prepare(
     `SELECT mode, COUNT(*) AS n, SUM(correct) AS got
-     FROM attempts WHERE ts >= ?
+     FROM attempts WHERE ${where}
      GROUP BY mode ORDER BY n DESC`
-  ).all(since);
+  ).all(...args);
   const byTopic = db.prepare(
     `SELECT COALESCE(topic, mode) AS topic, COUNT(*) AS n, SUM(correct) AS got
-     FROM attempts WHERE ts >= ?
+     FROM attempts WHERE ${where}
      GROUP BY COALESCE(topic, mode) ORDER BY n DESC`
-  ).all(since);
+  ).all(...args);
   res.json({ overall, byMode, byTopic });
 });
 

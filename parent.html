@@ -124,6 +124,11 @@
           <option value="0">All time</option>
         </select>
       </label>
+      <label>Date:
+        <input type="date" id="dateSelect">
+      </label>
+      <button id="clearDate" style="display:none; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 6px; background: white; cursor: pointer; font-size: 12px;">✕</button>
+      <label><input type="checkbox" id="onlyDaily"> ⭐ Daily Sessions only</label>
       <label>Mode:
         <select id="modeFilter">
           <option value="">All modes</option>
@@ -233,17 +238,39 @@ document.getElementById('logoutBtn').onclick = async () => {
 document.getElementById('windowSelect').onchange = refresh;
 document.getElementById('modeFilter').onchange = refresh;
 document.getElementById('onlyWrong').onchange = refresh;
+document.getElementById('onlyDaily').onchange = refresh;
 document.getElementById('limitSelect').onchange = refresh;
+document.getElementById('dateSelect').onchange = refresh;
+document.getElementById('clearDate').onclick = () => {
+  document.getElementById('dateSelect').value = '';
+  refresh();
+};
 
 async function refresh() {
-  const win = parseInt(document.getElementById('windowSelect').value) || 0;
-  const since = win === 0 ? 0 : Date.now() - win;
+  const dateVal = document.getElementById('dateSelect').value;
+  let since, until = 0;
+  if (dateVal) {
+    // Selected calendar day in SGT: midnight to midnight
+    const [y, m, d] = dateVal.split('-').map(Number);
+    since = Date.UTC(y, m - 1, d) - 8 * 3600 * 1000;
+    until = since + 24 * 3600 * 1000;
+  } else {
+    const win = parseInt(document.getElementById('windowSelect').value) || 0;
+    since = win === 0 ? 0 : Date.now() - win;
+  }
+  document.getElementById('windowSelect').disabled = !!dateVal;
+  document.getElementById('clearDate').style.display = dateVal ? 'inline-block' : 'none';
+
   const mode = document.getElementById('modeFilter').value;
   const onlyWrong = document.getElementById('onlyWrong').checked;
+  const onlyDaily = document.getElementById('onlyDaily').checked;
   const limit = document.getElementById('limitSelect').value;
 
   // Summary first
-  const sumR = await fetch('/api/parent/summary?since=' + since);
+  const sumParams = new URLSearchParams({ since });
+  if (until > 0) sumParams.set('until', until);
+  if (onlyDaily) sumParams.set('daily', '1');
+  const sumR = await fetch('/api/parent/summary?' + sumParams.toString());
   if (!sumR.ok) {
     document.getElementById('summary').innerHTML = '<div class="empty">Lost auth — refresh the page.</div>';
     return;
@@ -257,8 +284,10 @@ async function refresh() {
   const params = new URLSearchParams();
   params.set('since', since);
   params.set('limit', limit);
+  if (until > 0) params.set('until', until);
   if (mode) params.set('mode', mode);
   if (onlyWrong) params.set('only', 'wrong');
+  if (onlyDaily) params.set('daily', '1');
   const r = await fetch('/api/parent/attempts?' + params.toString());
   const d = await r.json();
   renderAttempts(d.attempts);
@@ -323,7 +352,7 @@ function renderAttempts(rows) {
   tbody.innerHTML = rows.map(r => `
     <tr class="${r.correct ? '' : 'wrong'}">
       <td class="ts-cell">${fmtTime(r.ts)}</td>
-      <td><span class="mode-chip">${r.mode}${r.fraction_sub ? ' / ' + r.fraction_sub : ''}${r.topic && r.topic !== r.mode ? ' / ' + escapeHtml(r.topic) : ''}</span></td>
+      <td><span class="mode-chip">${r.mode}${r.fraction_sub ? ' / ' + r.fraction_sub : ''}${r.topic && r.topic !== r.mode ? ' / ' + escapeHtml(r.topic) : ''}</span>${r.daily ? ' <span title="Daily Session">⭐</span>' : ''}</td>
       <td class="problem">${escapeHtml(r.problem_text)}</td>
       <td class="problem">${escapeHtml(r.expected)}</td>
       <td class="problem">${escapeHtml(r.given)}</td>
