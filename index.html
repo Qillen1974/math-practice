@@ -412,6 +412,7 @@
             <button class="mode-btn" onclick="setMode('order_ops')">🔢 Order of Ops</button>
             <button class="mode-btn" onclick="setMode('fractions')">🍕 Fractions</button>
             <button class="mode-btn" onclick="setMode('money')">💰 Money</button>
+            <button class="mode-btn" onclick="setMode('time')">🕐 Time</button>
             <button class="mode-btn" id="dailyBtn" onclick="startDailySession()">⭐ Daily Session</button>
         </div>
 
@@ -497,12 +498,12 @@
 
         // ---------- Daily Session: mixed assessment across all topics ----------
         const SESSION_LENGTH = 20;
-        const SESSION_MODES = ['word', 'decimal', 'decimal_align', 'multiply', 'divide', 'decimal_multiply', 'order_ops', 'fractions', 'money'];
+        const SESSION_MODES = ['word', 'decimal', 'decimal_align', 'multiply', 'divide', 'decimal_multiply', 'order_ops', 'fractions', 'money', 'time'];
         const FRACTION_SUBS = ['addition', 'subtraction', 'conversion', 'to_decimal', 'simplify'];
         const MODE_LABELS = {
             word: '📝 Word Problems', decimal: '➕➖ Decimals', decimal_align: '📐 Line It Up',
             multiply: '✖️ Multiplication', divide: '➗ Division', decimal_multiply: '🔢 Decimal ×',
-            order_ops: '🔢 Order of Ops', fractions: '🍕 Fractions', money: '💰 Money'
+            order_ops: '🔢 Order of Ops', fractions: '🍕 Fractions', money: '💰 Money', time: '🕐 Time'
         };
         let dailySession = { active: false, plan: [], index: 0, answered: false, results: [] };
 
@@ -663,7 +664,8 @@
                     (mode === 'decimal_multiply' && text.includes('decimal ×')) ||
                     (mode === 'order_ops' && text.includes('order')) ||
                     (mode === 'fractions' && text.includes('fractions')) ||
-                    (mode === 'money' && text.includes('money'))) {
+                    (mode === 'money' && text.includes('money')) ||
+                    (mode === 'time' && text.includes('time'))) {
                     btn.classList.add('active');
                 }
             });
@@ -1618,6 +1620,169 @@
             displayAnimationSteps(steps);
         }
 
+        const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+        function fmtClock(mins) {
+            const h = Math.floor(mins / 60) % 24, m = mins % 60;
+            const ap = h >= 12 ? 'pm' : 'am';
+            let h12 = h % 12;
+            if (h12 === 0) h12 = 12;
+            return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
+        }
+
+        function fmtDur(mins) {
+            const h = Math.floor(mins / 60), m = mins % 60;
+            if (h === 0) return `${m} minutes`;
+            if (m === 0) return `${h} hour${h > 1 ? 's' : ''}`;
+            return `${h} hour${h > 1 ? 's' : ''} ${m} minutes`;
+        }
+
+        function buildOptions(answer, candidates) {
+            const opts = [answer];
+            for (const c of candidates) {
+                if (opts.length >= 4) break;
+                if (c && !opts.includes(c)) opts.push(c);
+            }
+            return shuffleInPlace(opts);
+        }
+
+        function generateTimeProblem(difficulty) {
+            const sub = ['time_end', 'time_elapsed', 'time_calendar'][getRandomInt(0, 2)];
+
+            if (sub === 'time_end') {
+                // start + duration → end time
+                const start = getRandomInt(84, 240) * 5; // 7:00 am – 8:00 pm, 5-min steps
+                const dur = difficulty === 'easy' ? getRandomInt(2, 11) * 5
+                    : difficulty === 'medium' ? getRandomInt(4, 18) * 5
+                    : getRandomInt(7, 30) * 5;
+                const end = start + dur;
+                const templates = [
+                    `The MRT train leaves the station at ${fmtClock(start)}. The ride takes ${fmtDur(dur)}. What time does it arrive?`,
+                    `Maths class starts at ${fmtClock(start)} and lasts ${fmtDur(dur)}. What time does it end?`,
+                    `A movie starts at ${fmtClock(start)} and runs for ${fmtDur(dur)}. What time does it finish?`,
+                    `The bus leaves the interchange at ${fmtClock(start)}. The trip takes ${fmtDur(dur)}. What time does it arrive?`
+                ];
+                return {
+                    type: 'time', topic: 'time_end', start, dur,
+                    question: templates[getRandomInt(0, templates.length - 1)],
+                    answer: fmtClock(end),
+                    options: buildOptions(fmtClock(end), shuffleInPlace(
+                        [end - 10, end + 10, end + 60, end - 60, end + 15, end - 15, end + 5].filter(t => t > 0)
+                    ).map(fmtClock))
+                };
+            }
+
+            if (sub === 'time_elapsed') {
+                // opening hours / how long (30-min steps keep it WPN-realistic)
+                const openM = getRandomInt(12, 22) * 30;            // 6:00 – 11:00 am
+                const closeM = getRandomInt(26, 44) * 30;           // 1:00 – 10:00 pm
+                const elapsed = closeM - openM;
+                const templates = [
+                    `The library opens at ${fmtClock(openM)} and closes at ${fmtClock(closeM)}. How long is it open?`,
+                    `The hawker stall opens at ${fmtClock(openM)} and closes at ${fmtClock(closeM)}. How long is it open each day?`,
+                    `The swimming pool opens at ${fmtClock(openM)} and closes at ${fmtClock(closeM)}. How long is it open?`
+                ];
+                return {
+                    type: 'time', topic: 'time_elapsed', openM, closeM,
+                    question: templates[getRandomInt(0, templates.length - 1)],
+                    answer: fmtDur(elapsed),
+                    options: buildOptions(fmtDur(elapsed), shuffleInPlace(
+                        [elapsed + 60, elapsed - 60, elapsed + 30, elapsed - 30, elapsed + 120].filter(t => t > 0)
+                    ).map(fmtDur))
+                };
+            }
+
+            // time_calendar — day-of-week counting
+            const todayIdx = getRandomInt(0, 6);
+            const n = difficulty === 'easy' ? getRandomInt(1, 6)
+                : difficulty === 'medium' ? getRandomInt(2, 9)
+                : getRandomInt(8, 13);
+            const answerIdx = (todayIdx + n) % 7;
+            const templates = [
+                `Today is ${DAYS[todayIdx]}. The school outing is in ${n} days. What day will it be?`,
+                `Today is ${DAYS[todayIdx]}. The school holiday starts in ${n} days. What day will that be?`,
+                `Today is ${DAYS[todayIdx]}. Grandma is visiting in ${n} days. What day will she come?`
+            ];
+            return {
+                type: 'time', topic: 'time_calendar', todayIdx, n,
+                question: templates[getRandomInt(0, templates.length - 1)],
+                answer: DAYS[answerIdx],
+                options: buildOptions(DAYS[answerIdx], shuffleInPlace(
+                    [1, 6, 2, 5, 3].map(off => DAYS[(answerIdx + off) % 7])
+                ))
+            };
+        }
+
+        function showTimeAnimation() {
+            const p = currentProblem;
+            const steps = [];
+
+            if (p.topic === 'time_end') {
+                steps.push(`📝 Start at ${fmtClock(p.start)}, add ${fmtDur(p.dur)}`);
+                steps.push(``);
+                let cur = p.start, remaining = p.dur;
+                const hours = Math.floor(remaining / 60);
+                if (hours > 0) {
+                    steps.push(`✨ Add the hours first:`);
+                    steps.push(`   ${fmtClock(cur)} + ${hours} hour${hours > 1 ? 's' : ''} → ${fmtClock(cur + hours * 60)}`);
+                    cur += hours * 60;
+                    remaining -= hours * 60;
+                    if (remaining > 0) steps.push(``);
+                }
+                if (remaining > 0) {
+                    const toHour = 60 - (cur % 60);
+                    if (cur % 60 !== 0 && remaining >= toHour) {
+                        steps.push(`✨ Count on to the next hour:`);
+                        steps.push(`   ${fmtClock(cur)} + ${toHour} min → ${fmtClock(cur + toHour)}`);
+                        if (remaining - toHour > 0) {
+                            steps.push(`   then + ${remaining - toHour} min → ${fmtClock(cur + remaining)}`);
+                        }
+                    } else {
+                        steps.push(`✨ Add the minutes:`);
+                        steps.push(`   ${fmtClock(cur)} + ${remaining} min → ${fmtClock(cur + remaining)}`);
+                    }
+                }
+                steps.push(``);
+                steps.push(`🎯 ${p.answer}`);
+            } else if (p.topic === 'time_elapsed') {
+                steps.push(`📝 From ${fmtClock(p.openM)} to ${fmtClock(p.closeM)}`);
+                steps.push(``);
+                let cur = p.openM;
+                if (cur % 60 !== 0) {
+                    const toHour = 60 - (cur % 60);
+                    steps.push(`✨ First, to the next full hour:`);
+                    steps.push(`   ${fmtClock(cur)} → ${fmtClock(cur + toHour)} is ${toHour} min`);
+                    cur += toHour;
+                }
+                steps.push(`✨ Then count the hours:`);
+                steps.push(`   ${fmtClock(cur)} → ${fmtClock(p.closeM)} is ${fmtDur(p.closeM - cur)}`);
+                if (p.openM % 60 !== 0) {
+                    steps.push(``);
+                    steps.push(`✨ Add them together:`);
+                    steps.push(`   ${fmtDur(p.closeM - cur)} + ${60 - (p.openM % 60)} min = ${p.answer}`);
+                }
+                steps.push(``);
+                steps.push(`🎯 Open for ${p.answer}`);
+            } else {
+                steps.push(`📝 Today is ${DAYS[p.todayIdx]}, count ${p.n} days ahead`);
+                steps.push(``);
+                if (p.n >= 7) {
+                    steps.push(`✨ 7 days later is the SAME day → ${DAYS[p.todayIdx]}`);
+                    steps.push(`   ${p.n} − 7 = ${p.n - 7} more day${p.n - 7 === 1 ? '' : 's'} to count`);
+                }
+                const extra = p.n % 7;
+                if (extra > 0) {
+                    const walk = [];
+                    for (let i = 1; i <= extra; i++) walk.push(DAYS[(p.todayIdx + i) % 7]);
+                    steps.push(`✨ Count: ${walk.join(' → ')}`);
+                }
+                steps.push(``);
+                steps.push(`🎯 ${p.answer}`);
+            }
+
+            displayAnimationSteps(steps);
+        }
+
         function generateProblem() {
             if (dailySession.active) {
                 if (dailySession.answered) {
@@ -1664,10 +1829,12 @@
                 }
             } else if (currentMode === 'money') {
                 currentProblem = generateMoneyProblem(difficulty);
+            } else if (currentMode === 'time') {
+                currentProblem = generateTimeProblem(difficulty);
             }
 
-            if (currentMode === 'word') {
-                // Display word problem with multiple choice
+            if (currentMode === 'word' || currentMode === 'time') {
+                // Display problem with multiple choice
                 document.getElementById('problem').textContent = currentProblem.question;
                 document.getElementById('hint').textContent = 'Select the correct answer:';
                 document.getElementById('multipleChoice').style.display = 'grid';
@@ -1791,6 +1958,8 @@
                 showOrderOpsAnimation();
             } else if (currentProblem.type === 'money') {
                 showMoneyAnimation();
+            } else if (currentProblem.type === 'time') {
+                showTimeAnimation();
             } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'conversion') {
                 showFractionAnimation();
             } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'simplify') {
