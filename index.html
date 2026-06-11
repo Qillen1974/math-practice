@@ -368,6 +368,31 @@
             font-weight: 700;
             color: #4a5568;
         }
+
+        .confetti-piece {
+            position: fixed;
+            top: -20px;
+            width: 12px;
+            height: 12px;
+            pointer-events: none;
+            z-index: 9999;
+            animation: confetti-fall linear forwards;
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(105vh) rotate(720deg); opacity: 0.7; }
+        }
+
+        .session-done-title {
+            animation: pop-in 0.5s ease-out;
+        }
+
+        @keyframes pop-in {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.15); }
+            100% { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -556,6 +581,22 @@
             document.getElementById('nextBtn').textContent = isLast ? 'See Results 🏁' : 'Next Question ➡️';
         }
 
+        function launchConfetti() {
+            const colors = ['#667eea', '#48bb78', '#ed8936', '#e53e3e', '#ecc94b', '#4299e1', '#9f7aea'];
+            for (let i = 0; i < 90; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + 'vw';
+                piece.style.background = colors[getRandomInt(0, colors.length - 1)];
+                piece.style.animationDuration = (2 + Math.random() * 2.5) + 's';
+                piece.style.animationDelay = (Math.random() * 1.2) + 's';
+                piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                piece.style.width = piece.style.height = (8 + Math.random() * 8) + 'px';
+                document.body.appendChild(piece);
+                setTimeout(() => piece.remove(), 6000);
+            }
+        }
+
         function showSessionSummary() {
             const results = dailySession.results;
             const got = results.filter(r => r.correct).length;
@@ -563,8 +604,14 @@
             document.getElementById('sessionProgress').textContent = '⭐ Session Complete!';
             document.getElementById('sessionProgress').style.display = 'block';
 
-            document.getElementById('problem').textContent = '🎓 Daily Session Complete!';
-            document.getElementById('hint').textContent = `You got ${got} out of ${results.length}!`;
+            const problemEl = document.getElementById('problem');
+            problemEl.textContent = '🏆 Daily Session Complete!';
+            problemEl.classList.remove('session-done-title');
+            void problemEl.offsetWidth; // restart animation on repeat sessions
+            problemEl.classList.add('session-done-title');
+            document.getElementById('hint').textContent = `You finished all ${results.length} questions — you got ${got} right!`;
+            launchConfetti();
+            playSound('fanfare');
             document.getElementById('multipleChoice').style.display = 'none';
             document.getElementById('inputArea').style.display = 'none';
             document.getElementById('feedback').style.display = 'none';
@@ -2249,7 +2296,18 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                if (type === 'correct') {
+                if (type === 'fanfare') {
+                    // C5 → E5 → G5 → C6 rising arpeggio with a held final note
+                    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+                    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.15);
+                    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.3);
+                    oscillator.frequency.setValueAtTime(1046.5, audioContext.currentTime + 0.45);
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + 0.45);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.1);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 1.1);
+                } else if (type === 'correct') {
                     oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
                     oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
                     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
