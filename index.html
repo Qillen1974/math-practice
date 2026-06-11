@@ -248,6 +248,9 @@
             margin: 15px 0;
             opacity: 0;
             animation: fadeIn 0.5s forwards;
+            /* preserve spaces + fixed-width digits so stacked numbers really line up */
+            white-space: pre;
+            font-family: 'Courier New', Courier, monospace;
         }
         
         @keyframes fadeIn {
@@ -333,6 +336,7 @@
         <div class="mode-selector">
             <button class="mode-btn active" onclick="setMode('word')">📝 Word Problems</button>
             <button class="mode-btn" onclick="setMode('decimal')">➕➖ Decimals</button>
+            <button class="mode-btn" onclick="setMode('decimal_align')">📐 Line It Up</button>
             <button class="mode-btn" onclick="setMode('multiply')">✖️ Multiplication</button>
             <button class="mode-btn" onclick="setMode('divide')">➗ Division</button>
             <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
@@ -395,6 +399,8 @@
                 const payload = {
                     mode: currentMode,
                     fraction_sub: currentMode === 'fractions' ? fractionSub : null,
+                    topic: (currentProblem && currentProblem.topic) ||
+                        (currentMode === 'fractions' ? 'fraction_' + fractionSub : currentMode),
                     problem_text: (document.getElementById('problem').textContent || '').trim(),
                     expected: String((currentProblem && currentProblem.answer !== undefined) ? currentProblem.answer : ''),
                     given: String(given),
@@ -419,6 +425,7 @@
                 const text = btn.textContent.toLowerCase();
                 if ((mode === 'word' && text.includes('word')) ||
                     (mode === 'decimal' && text.includes('decimals')) ||
+                    (mode === 'decimal_align' && text.includes('line it up')) ||
                     (mode === 'multiply' && text.includes('multiplication')) ||
                     (mode === 'divide' && text.includes('division')) ||
                     (mode === 'decimal_multiply' && text.includes('decimal ×')) ||
@@ -475,6 +482,112 @@
             };
         }
         
+        // "Line It Up" drills — shaped like Caleb's real workbook errors, where he
+        // right-aligns digits and ignores the decimal point (8 + 1.50 = 1.58 type mistakes).
+        // num1/num2 returned as STRINGS so trailing zeros display (1.50, not 1.5).
+        function generateDecimalAlignProblem(difficulty) {
+            const r = Math.random();
+            let shape;
+            if (r < 0.28) shape = 'add_mixed';
+            else if (r < 0.56) shape = 'sub_mixed';
+            else if (r < 0.74) shape = 'x10';
+            else if (r < 0.88) shape = 'x_small';
+            else shape = 'facts01';
+
+            let num1, num2, operator, answer, topic;
+
+            if (shape === 'add_mixed') {
+                // whole + decimal, mixed formats: 8 + 1.50, 3.2 + 65
+                topic = 'align_add_mixed';
+                operator = '+';
+                let whole, dec, decStr;
+                if (difficulty === 'easy') {
+                    whole = getRandomInt(1, 9);
+                    dec = getRandomInt(1, 9) + getRandomInt(1, 9) / 10;
+                    decStr = dec.toFixed(1);
+                } else if (difficulty === 'medium') {
+                    whole = getRandomInt(2, 20);
+                    dec = getRandomInt(0, 9) + getRandomInt(1, 19) * 5 / 100; // .05 steps → money-like .50
+                    if (dec === 0) dec = 0.5;
+                    decStr = dec.toFixed(2);
+                } else {
+                    whole = getRandomInt(21, 99);
+                    dec = getRandomInt(0, 9) + getRandomInt(1, 99) / 100;
+                    decStr = dec.toFixed(2);
+                }
+                answer = whole + dec;
+                if (Math.random() < 0.5) { num1 = String(whole); num2 = decStr; }
+                else { num1 = decStr; num2 = String(whole); }
+            } else if (shape === 'sub_mixed') {
+                // whole − decimal: 1 − 0.5, 10 − 0.8, 100 − 27.55
+                topic = 'align_sub_mixed';
+                operator = '-';
+                let whole, dec, decStr;
+                if (difficulty === 'easy') {
+                    whole = getRandomInt(1, 10);
+                    dec = getRandomInt(1, 9) / 10;
+                    decStr = dec.toFixed(1);
+                } else if (difficulty === 'medium') {
+                    whole = [10, 10, 20, 50][getRandomInt(0, 3)];
+                    dec = getRandomInt(0, whole - 1) + getRandomInt(1, 9) / 10;
+                    decStr = dec.toFixed(1);
+                } else {
+                    whole = [100, 100, 50, 200][getRandomInt(0, 3)];
+                    dec = getRandomInt(1, whole - 1) + getRandomInt(1, 99) / 100;
+                    decStr = dec.toFixed(2);
+                }
+                answer = whole - dec;
+                num1 = String(whole); num2 = decStr;
+            } else if (shape === 'x10') {
+                // decimal × 10/100 — point shift: 0.8 × 10
+                topic = 'align_x10';
+                operator = '×';
+                let dec, mult, decStr;
+                if (difficulty === 'easy') {
+                    dec = getRandomInt(1, 9) / 10; mult = 10; decStr = dec.toFixed(1);
+                } else if (difficulty === 'medium') {
+                    if (Math.random() < 0.5) { dec = getRandomInt(1, 9) + getRandomInt(1, 9) / 10; mult = 10; decStr = dec.toFixed(1); }
+                    else { dec = getRandomInt(1, 9) / 10; mult = 100; decStr = dec.toFixed(1); }
+                } else {
+                    dec = getRandomInt(1, 9) + getRandomInt(1, 99) / 100; mult = 100; decStr = dec.toFixed(2);
+                }
+                answer = dec * mult;
+                num1 = decStr; num2 = String(mult);
+            } else if (shape === 'x_small') {
+                // decimal × small whole: 2.7 × 4, 5.20 × 6, 15.5 × 7
+                topic = 'align_x_small';
+                operator = '×';
+                let dec, mult, decStr;
+                if (difficulty === 'easy') {
+                    dec = getRandomInt(1, 9) + getRandomInt(1, 9) / 10; mult = getRandomInt(2, 5); decStr = dec.toFixed(1);
+                } else if (difficulty === 'medium') {
+                    dec = getRandomInt(1, 9) + getRandomInt(1, 19) * 5 / 100; mult = getRandomInt(2, 9); decStr = dec.toFixed(2);
+                } else {
+                    dec = getRandomInt(10, 19) + getRandomInt(1, 9) / 10; mult = getRandomInt(3, 9); decStr = dec.toFixed(1);
+                }
+                answer = dec * mult;
+                num1 = decStr; num2 = String(mult);
+            } else {
+                // ×0 / ×1 facts (8 × 0 = 8 was a real error)
+                topic = 'facts_x01';
+                operator = '×';
+                const n = getRandomInt(0, 12);
+                const f = Math.random() < 0.5 ? 0 : 1;
+                answer = n * f;
+                if (Math.random() < 0.5) { num1 = String(n); num2 = String(f); }
+                else { num1 = String(f); num2 = String(n); }
+            }
+
+            return {
+                num1: num1,
+                num2: num2,
+                operator: operator,
+                answer: parseFloat(answer.toFixed(2)),
+                type: 'decimal_align',
+                topic: topic
+            };
+        }
+
         function generateMultiplyProblem(difficulty) {
             let num1, num2;
             
@@ -1164,6 +1277,8 @@
                 currentProblem = generateWordProblem();
             } else if (currentMode === 'decimal') {
                 currentProblem = generateDecimalProblem(difficulty);
+            } else if (currentMode === 'decimal_align') {
+                currentProblem = generateDecimalAlignProblem(difficulty);
             } else if (currentMode === 'multiply') {
                 currentProblem = generateMultiplyProblem(difficulty);
             } else if (currentMode === 'divide') {
@@ -1232,7 +1347,9 @@
             } else {
                 document.getElementById('problem').textContent =
                     `${currentProblem.num1} ${currentProblem.operator} ${currentProblem.num2} = ?`;
-                document.getElementById('hint').textContent = 'Enter your answer below';
+                document.getElementById('hint').textContent = currentProblem.type === 'decimal_align'
+                    ? '📐 Line up the decimal points, not the ends!'
+                    : 'Enter your answer below';
                 document.getElementById('multipleChoice').style.display = 'none';
                 document.getElementById('inputArea').style.display = 'block';
                 document.getElementById('answerInput').value = '';
@@ -1284,6 +1401,8 @@
             
             if (currentProblem.type === 'decimal') {
                 showDecimalAnimation();
+            } else if (currentProblem.type === 'decimal_align') {
+                showDecimalAlignAnimation();
             } else if (currentProblem.type === 'multiply') {
                 showMultiplyAnimation();
             } else if (currentProblem.type === 'divide') {
@@ -1303,6 +1422,85 @@
             }
         }
         
+        function showDecimalAlignAnimation() {
+            const { num1, num2, operator, answer, topic } = currentProblem;
+            const v1 = parseFloat(num1);
+            const v2 = parseFloat(num2);
+            let steps = [];
+
+            const dpOf = (s) => (s.includes('.') ? s.split('.')[1].length : 0);
+            const fmtAnswer = (a) => {
+                const s = a.toFixed(2);
+                return s.endsWith('.00') ? String(Math.round(a)) : (s.endsWith('0') ? a.toFixed(1) : s);
+            };
+
+            if (topic === 'facts_x01') {
+                steps.push(`📝 ${num1} × ${num2}`);
+                steps.push(``);
+                if (v1 === 0 || v2 === 0) {
+                    steps.push(`✨ Anything × 0 is ALWAYS 0`);
+                    steps.push(`   ${v1 === 0 ? num2 : num1} groups of nothing = nothing!`);
+                } else {
+                    steps.push(`✨ Anything × 1 stays the SAME`);
+                    steps.push(`   One group of ${v1 === 1 ? num2 : num1} is just ${v1 === 1 ? num2 : num1}`);
+                }
+                steps.push(``);
+                steps.push(`🎯 ${num1} × ${num2} = ${answer}`);
+            } else if (topic === 'align_x10') {
+                const places = v2 === 100 ? 2 : 1;
+                steps.push(`📝 ${num1} × ${num2}`);
+                steps.push(``);
+                steps.push(`✨ ×${num2} means the decimal point`);
+                steps.push(`   jumps ${places} place${places > 1 ? 's' : ''} to the RIGHT →`);
+                steps.push(``);
+                steps.push(`   ${num1} → ${fmtAnswer(answer)}`);
+                steps.push(``);
+                steps.push(`⚠️ Don't just add zeros! 0.8 × 10 is 8, not 80`);
+                steps.push(``);
+                steps.push(`🎯 ${num1} × ${num2} = ${fmtAnswer(answer)}`);
+            } else if (topic === 'align_x_small') {
+                const dp = dpOf(num1);
+                const noPoint = num1.replace('.', '');
+                const big = parseInt(noPoint, 10) * v2;
+                steps.push(`📝 ${num1} × ${num2}`);
+                steps.push(``);
+                steps.push(`📝 Step 1: Ignore the point for now`);
+                steps.push(`   ${parseInt(noPoint, 10)} × ${num2} = ${big}`);
+                steps.push(``);
+                steps.push(`📝 Step 2: Put the point back`);
+                steps.push(`   ${num1} has ${dp} decimal place${dp > 1 ? 's' : ''},`);
+                steps.push(`   so count ${dp} from the right:`);
+                steps.push(`   ${big} → ${fmtAnswer(answer)}`);
+                steps.push(``);
+                steps.push(`🎯 ${num1} × ${num2} = ${fmtAnswer(answer)}`);
+            } else {
+                // add_mixed / sub_mixed — the vertical alignment lesson
+                const dp = Math.max(dpOf(num1), dpOf(num2), 1);
+                const s1 = v1.toFixed(dp);
+                const s2 = v2.toFixed(dp);
+                const w = Math.max(s1.length, s2.length, (operator === '+' ? answer : answer).toFixed(dp).length);
+                const aStr = answer.toFixed(dp);
+                steps.push(`📝 ${num1} ${operator} ${num2}`);
+                steps.push(``);
+                steps.push(`⚠️ Line up the DECIMAL POINTS,`);
+                steps.push(`   not the last digits!`);
+                steps.push(``);
+                steps.push(`📝 Step 1: Write the missing zeros`);
+                if (dpOf(num1) < dp) steps.push(`   ${num1} → ${s1}`);
+                if (dpOf(num2) < dp) steps.push(`   ${num2} → ${s2}`);
+                steps.push(``);
+                steps.push(`📝 Step 2: Stack with points in a line`);
+                steps.push(`   ${s1.padStart(w)}`);
+                steps.push(` ${operator} ${s2.padStart(w)}`);
+                steps.push(`   ${'─'.repeat(w)}`);
+                steps.push(`   ${aStr.padStart(w)}`);
+                steps.push(``);
+                steps.push(`🎯 ${num1} ${operator} ${num2} = ${fmtAnswer(answer)}`);
+            }
+
+            displayAnimationSteps(steps);
+        }
+
         function showDecimalAnimation() {
             const area = document.getElementById('animationArea');
             const { num1, num2, operator, answer } = currentProblem;
@@ -1818,7 +2016,7 @@
                     return;
                 }
                 // Check with 2 decimal places for decimals, exact match for others
-                correct = (currentProblem.type === 'decimal' || currentProblem.type === 'decimal_multiply')
+                correct = (currentProblem.type === 'decimal' || currentProblem.type === 'decimal_multiply' || currentProblem.type === 'decimal_align')
                     ? Math.abs(userAnswer - currentProblem.answer) < 0.01
                     : userAnswer === currentProblem.answer;
             }

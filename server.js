@@ -38,9 +38,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_attempts_mode ON attempts(mode);
 `);
 
+// Migration: topic tag (finer-grained than mode, e.g. decimal_align sub-shapes)
+const hasTopic = db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('attempts') WHERE name = 'topic'`).get().n > 0;
+if (!hasTopic) db.exec(`ALTER TABLE attempts ADD COLUMN topic TEXT`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_attempts_topic ON attempts(topic)`);
+
 const insertAttempt = db.prepare(
-  `INSERT INTO attempts (ts, mode, fraction_sub, problem_text, expected, given, correct, ms_taken)
-   VALUES (@ts, @mode, @fraction_sub, @problem_text, @expected, @given, @correct, @ms_taken)`
+  `INSERT INTO attempts (ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken)
+   VALUES (@ts, @mode, @fraction_sub, @topic, @problem_text, @expected, @given, @correct, @ms_taken)`
 );
 
 const app = express();
@@ -60,6 +65,7 @@ app.post('/api/log', (req, res) => {
       ts: Date.now(),
       mode: clip(b.mode, 32),
       fraction_sub: b.fraction_sub ? clip(b.fraction_sub, 32) : null,
+      topic: b.topic ? clip(b.topic, 48) : null,
       problem_text: clip(b.problem_text, 512),
       expected: clip(b.expected, 128),
       given: clip(b.given, 128),
@@ -111,9 +117,11 @@ app.get('/api/parent/attempts', requireParent, (req, res) => {
   const mode = req.query.mode && typeof req.query.mode === 'string' ? req.query.mode : null;
   const since = parseInt(req.query.since) || 0;
   const onlyWrong = req.query.only === 'wrong';
-  let sql = 'SELECT id, ts, mode, fraction_sub, problem_text, expected, given, correct, ms_taken FROM attempts WHERE ts >= ?';
+  const topic = req.query.topic && typeof req.query.topic === 'string' ? req.query.topic : null;
+  let sql = 'SELECT id, ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken FROM attempts WHERE ts >= ?';
   const args = [since];
   if (mode) { sql += ' AND mode = ?'; args.push(mode); }
+  if (topic) { sql += ' AND topic = ?'; args.push(topic); }
   if (onlyWrong) sql += ' AND correct = 0';
   sql += ' ORDER BY ts DESC LIMIT ?';
   args.push(limit);
@@ -130,7 +138,12 @@ app.get('/api/parent/summary', requireParent, (req, res) => {
      FROM attempts WHERE ts >= ?
      GROUP BY mode ORDER BY n DESC`
   ).all(since);
-  res.json({ overall, byMode });
+  const byTopic = db.prepare(
+    `SELECT COALESCE(topic, mode) AS topic, COUNT(*) AS n, SUM(correct) AS got
+     FROM attempts WHERE ts >= ?
+     GROUP BY COALESCE(topic, mode) ORDER BY n DESC`
+  ).all(since);
+  res.json({ overall, byMode, byTopic });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

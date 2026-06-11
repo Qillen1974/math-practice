@@ -142,6 +142,11 @@
 
     <div class="summary" id="summary"></div>
 
+    <div id="topicSection" style="padding: 0 22px 14px; background: #edf2f7; display: none;">
+      <div style="font-size: 12px; color: #4a5568; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">By topic</div>
+      <div id="topicBars" style="display: flex; flex-direction: column; gap: 6px;"></div>
+    </div>
+
     <div style="max-height: 60vh; overflow-y: auto;">
       <table>
         <thead>
@@ -245,6 +250,7 @@ async function refresh() {
   }
   const sum = await sumR.json();
   renderSummary(sum);
+  renderTopics(sum.byTopic);
   populateModeFilter(sum.byMode, mode);
 
   // Attempts
@@ -274,6 +280,29 @@ function renderSummary({ overall, byMode }) {
   el.innerHTML = html;
 }
 
+function renderTopics(byTopic) {
+  const section = document.getElementById('topicSection');
+  const el = document.getElementById('topicBars');
+  const rows = (byTopic || []).filter(t => t.n > 0);
+  if (rows.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  // Weakest first — that's what a parent wants to see
+  rows.sort((a, b) => (a.got / a.n) - (b.got / b.n) || b.n - a.n);
+  const barColor = { good: '#48bb78', warn: '#ed8936', bad: '#e53e3e' };
+  el.innerHTML = rows.map(t => {
+    const pct = Math.round(100 * t.got / t.n);
+    const cls = pctClass(pct);
+    return `
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 12px;">
+        <div style="width: 150px; font-weight: 600; color: #4a5568; text-align: right;">${escapeHtml(t.topic)}</div>
+        <div style="flex: 1; background: white; border-radius: 4px; height: 16px; overflow: hidden;">
+          <div style="width: ${pct}%; height: 100%; background: ${barColor[cls]};"></div>
+        </div>
+        <div style="width: 90px; color: #4a5568;">${pct}% (${t.got}/${t.n})</div>
+      </div>`;
+  }).join('');
+}
+
 let knownModes = new Set();
 function populateModeFilter(byMode, selected) {
   for (const m of byMode || []) knownModes.add(m.mode);
@@ -294,7 +323,7 @@ function renderAttempts(rows) {
   tbody.innerHTML = rows.map(r => `
     <tr class="${r.correct ? '' : 'wrong'}">
       <td class="ts-cell">${fmtTime(r.ts)}</td>
-      <td><span class="mode-chip">${r.mode}${r.fraction_sub ? ' / ' + r.fraction_sub : ''}</span></td>
+      <td><span class="mode-chip">${r.mode}${r.fraction_sub ? ' / ' + r.fraction_sub : ''}${r.topic && r.topic !== r.mode ? ' / ' + escapeHtml(r.topic) : ''}</span></td>
       <td class="problem">${escapeHtml(r.problem_text)}</td>
       <td class="problem">${escapeHtml(r.expected)}</td>
       <td class="problem">${escapeHtml(r.given)}</td>
