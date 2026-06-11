@@ -411,6 +411,7 @@
             <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
             <button class="mode-btn" onclick="setMode('order_ops')">🔢 Order of Ops</button>
             <button class="mode-btn" onclick="setMode('fractions')">🍕 Fractions</button>
+            <button class="mode-btn" onclick="setMode('money')">💰 Money</button>
             <button class="mode-btn" id="dailyBtn" onclick="startDailySession()">⭐ Daily Session</button>
         </div>
 
@@ -496,12 +497,12 @@
 
         // ---------- Daily Session: mixed assessment across all topics ----------
         const SESSION_LENGTH = 20;
-        const SESSION_MODES = ['word', 'decimal', 'decimal_align', 'multiply', 'divide', 'decimal_multiply', 'order_ops', 'fractions'];
+        const SESSION_MODES = ['word', 'decimal', 'decimal_align', 'multiply', 'divide', 'decimal_multiply', 'order_ops', 'fractions', 'money'];
         const FRACTION_SUBS = ['addition', 'subtraction', 'conversion', 'to_decimal', 'simplify'];
         const MODE_LABELS = {
             word: '📝 Word Problems', decimal: '➕➖ Decimals', decimal_align: '📐 Line It Up',
             multiply: '✖️ Multiplication', divide: '➗ Division', decimal_multiply: '🔢 Decimal ×',
-            order_ops: '🔢 Order of Ops', fractions: '🍕 Fractions'
+            order_ops: '🔢 Order of Ops', fractions: '🍕 Fractions', money: '💰 Money'
         };
         let dailySession = { active: false, plan: [], index: 0, answered: false, results: [] };
 
@@ -534,7 +535,7 @@
         }
 
         function buildSessionPlan(stats) {
-            // 2 of every mode = full coverage (16), + 4 extra weighted toward weak modes
+            // 2 of every mode = full coverage (18), + extras weighted toward weak modes
             const plan = [];
             SESSION_MODES.forEach(m => plan.push(m, m));
             const weights = SESSION_MODES.map(m => {
@@ -661,7 +662,8 @@
                     (mode === 'divide' && text.includes('division')) ||
                     (mode === 'decimal_multiply' && text.includes('decimal ×')) ||
                     (mode === 'order_ops' && text.includes('order')) ||
-                    (mode === 'fractions' && text.includes('fractions'))) {
+                    (mode === 'fractions' && text.includes('fractions')) ||
+                    (mode === 'money' && text.includes('money'))) {
                     btn.classList.add('active');
                 }
             });
@@ -1503,6 +1505,119 @@
             return template.generate();
         }
 
+        const SG_ITEMS = [
+            ['chicken rice', 3.5, 5.5], ['kopi', 1.2, 2.0], ['iced Milo', 1.8, 2.6],
+            ['a curry puff', 1.4, 2.2], ['a sandwich', 2.8, 4.6], ['fishball noodles', 3.0, 5.0],
+            ['a loaf of bread', 2.0, 3.6], ['a box of eggs', 3.0, 4.8], ['an apple', 0.6, 1.2],
+            ['a packet drink', 1.0, 2.4], ['a slice of cake', 2.5, 4.5], ['nasi lemak', 3.0, 5.0]
+        ];
+
+        function generateMoneyProblem(difficulty) {
+            const fmt = v => '$' + v.toFixed(2);
+            // SG cash rounds to 5 cents; easy mode uses friendlier 10-cent steps
+            const step = difficulty === 'easy' ? 10 : 20;
+            const priceOf = it => getRandomInt(Math.round(it[1] * step), Math.round(it[2] * step)) / step;
+            const pickItems = n => shuffleInPlace(SG_ITEMS.slice()).slice(0, n)
+                .map(it => ({ name: it[0], price: priceOf(it) }));
+            const listOf = priced => priced.map(p => `${p.name} (${fmt(p.price)})`).join(' and ');
+            const sumOf = priced => Math.round(priced.reduce((s, p) => s + p.price, 0) * 100) / 100;
+
+            const sub = ['money_total', 'money_change', 'money_compare'][getRandomInt(0, 2)];
+
+            if (sub === 'money_total') {
+                const priced = pickItems(difficulty === 'hard' ? 3 : 2);
+                const total = sumOf(priced);
+                return {
+                    type: 'money', topic: 'money_total',
+                    question: `At the hawker centre you buy ${listOf(priced)}. How much do you pay in total?`,
+                    items: priced, answer: total, answerText: fmt(total)
+                };
+            }
+
+            if (sub === 'money_change') {
+                const priced = pickItems(difficulty === 'hard' ? 2 : 1);
+                const cost = sumOf(priced);
+                const note = difficulty === 'easy' ? 10
+                    : (cost >= 10 ? 50 : (Math.random() > 0.5 ? 10 : 50));
+                const change = Math.round((note - cost) * 100) / 100;
+                return {
+                    type: 'money', topic: 'money_change',
+                    question: `You buy ${listOf(priced)} and pay with a $${note} note. How much change do you get?`,
+                    items: priced, cost, note, answer: change, answerText: fmt(change)
+                };
+            }
+
+            // money_compare — swapped-digit prices drill decimal place value
+            const dollars = getRandomInt(1, 9);
+            const a = getRandomInt(0, 9);
+            let b;
+            do { b = getRandomInt(0, 9); } while (b === a);
+            const p1 = dollars + a / 10 + b / 100;
+            const p2 = dollars + b / 10 + a / 100;
+            const cheaper = Math.min(p1, p2);
+            const item = SG_ITEMS[getRandomInt(0, SG_ITEMS.length - 1)][0];
+            return {
+                type: 'money', topic: 'money_compare',
+                question: `Two stalls sell ${item}. One charges ${fmt(p1)}, the other charges ${fmt(p2)}. Type the cheaper price.`,
+                p1, p2, answer: cheaper, answerText: fmt(cheaper)
+            };
+        }
+
+        function showMoneyAnimation() {
+            const fmt = v => v.toFixed(2);
+            const steps = [];
+            const p = currentProblem;
+
+            const stack = (amounts, op, result) => {
+                const strs = amounts.map(fmt);
+                const w = Math.max(...strs.map(s => s.length), fmt(result).length);
+                strs.forEach((s, i) => steps.push(`${i === strs.length - 1 ? ' ' + op : '  '} $${s.padStart(w)}`));
+                steps.push(`    ${'─'.repeat(w + 1)}`);
+                steps.push(`    $${fmt(result).padStart(w)}`);
+            };
+
+            if (p.topic === 'money_total') {
+                steps.push(`📝 Add the prices`);
+                steps.push(``);
+                stack(p.items.map(i => i.price), '+', p.answer);
+                steps.push(``);
+                steps.push(`💡 Money always has 2 decimal places,`);
+                steps.push(`   so the points line up by themselves!`);
+                steps.push(``);
+                steps.push(`🎯 Total = ${p.answerText}`);
+            } else if (p.topic === 'money_change') {
+                if (p.items.length > 1) {
+                    steps.push(`📝 Step 1: Add up what you bought`);
+                    steps.push(``);
+                    stack(p.items.map(i => i.price), '+', p.cost);
+                    steps.push(``);
+                    steps.push(`📝 Step 2: Change = money given − cost`);
+                } else {
+                    steps.push(`📝 Change = money given − cost`);
+                }
+                steps.push(``);
+                stack([p.note, p.cost], '−', p.answer);
+                steps.push(``);
+                steps.push(`🎯 Your change is ${p.answerText}`);
+            } else {
+                const t1 = Math.floor(p.p1 * 10) % 10;
+                const t2 = Math.floor(p.p2 * 10) % 10;
+                steps.push(`📝 $${fmt(p.p1)} vs $${fmt(p.p2)}`);
+                steps.push(``);
+                steps.push(`✨ Compare digit by digit from the LEFT`);
+                steps.push(`   Dollars: ${Math.floor(p.p1)} = ${Math.floor(p.p2)} → same, keep going`);
+                steps.push(`   Next place (10¢): ${t1} vs ${t2}`);
+                steps.push(`   ${Math.min(t1, t2)} is smaller — stop there!`);
+                steps.push(``);
+                steps.push(`⚠️ The first different place decides it,`);
+                steps.push(`   no matter what comes after.`);
+                steps.push(``);
+                steps.push(`🎯 ${p.answerText} is cheaper`);
+            }
+
+            displayAnimationSteps(steps);
+        }
+
         function generateProblem() {
             if (dailySession.active) {
                 if (dailySession.answered) {
@@ -1547,6 +1662,8 @@
                 } else {
                     currentProblem = generateFractionArithProblem(difficulty, fractionSub === 'addition' ? '+' : '-');
                 }
+            } else if (currentMode === 'money') {
+                currentProblem = generateMoneyProblem(difficulty);
             }
 
             if (currentMode === 'word') {
@@ -1591,6 +1708,12 @@
                         document.getElementById('hint').textContent = 'Simplify your answer (e.g. 3/4)';
                     }
                 }
+                document.getElementById('multipleChoice').style.display = 'none';
+                document.getElementById('inputArea').style.display = 'block';
+                document.getElementById('answerInput').value = '';
+            } else if (currentMode === 'money') {
+                document.getElementById('problem').textContent = currentProblem.question;
+                document.getElementById('hint').textContent = '💰 Answer in dollars, like 6.70';
                 document.getElementById('multipleChoice').style.display = 'none';
                 document.getElementById('inputArea').style.display = 'block';
                 document.getElementById('answerInput').value = '';
@@ -1666,6 +1789,8 @@
                 showDecimalMultiplyAnimation();
             } else if (currentProblem.type === 'order_ops') {
                 showOrderOpsAnimation();
+            } else if (currentProblem.type === 'money') {
+                showMoneyAnimation();
             } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'conversion') {
                 showFractionAnimation();
             } else if (currentProblem.type === 'fractions' && currentProblem.subType === 'simplify') {
@@ -2264,7 +2389,8 @@
                     }
                 }
             } else {
-                const userAnswer = parseFloat(rawAnswer);
+                // Accept "$6.70" as well as "6.70" in money mode
+                const userAnswer = parseFloat(rawAnswer.replace(/^\$/, ''));
                 if (isNaN(userAnswer)) {
                     feedback.textContent = 'Please enter a number! 📝';
                     feedback.className = 'feedback incorrect';
@@ -2273,7 +2399,7 @@
                     return;
                 }
                 // Check with 2 decimal places for decimals, exact match for others
-                correct = (currentProblem.type === 'decimal' || currentProblem.type === 'decimal_multiply' || currentProblem.type === 'decimal_align')
+                correct = (currentProblem.type === 'decimal' || currentProblem.type === 'decimal_multiply' || currentProblem.type === 'decimal_align' || currentProblem.type === 'money')
                     ? Math.abs(userAnswer - currentProblem.answer) < 0.01
                     : userAnswer === currentProblem.answer;
             }
@@ -2284,7 +2410,7 @@
                 feedback.className = 'feedback correct';
                 playSound('correct');
             } else {
-                feedback.innerHTML = `❌ Not quite.<br>The answer is ${currentProblem.answer}`;
+                feedback.innerHTML = `❌ Not quite.<br>The answer is ${currentProblem.answerText || currentProblem.answer}`;
                 feedback.className = 'feedback incorrect';
                 playSound('incorrect');
             }
