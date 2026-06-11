@@ -174,6 +174,29 @@
 <script>
 const SGT = -480; // Asia/Singapore is UTC+8 → offset in minutes for "UTC + 480 min"
 
+// Friendly names for internal mode/topic tags
+const NICE = {
+  word: 'Word Problems',
+  decimal: 'Decimals (+ and −)',
+  decimal_align: 'Line It Up',
+  multiply: 'Multiplication',
+  divide: 'Division',
+  decimal_multiply: 'Decimal ×',
+  order_ops: 'Order of Operations',
+  fractions: 'Fractions',
+  align_add_mixed: 'Line It Up: whole + decimal',
+  align_sub_mixed: 'Line It Up: whole − decimal',
+  align_x10: 'Decimal × 10 / 100',
+  align_x_small: 'Decimal × small number',
+  facts_x01: '×0 and ×1 facts',
+  fraction_addition: 'Fractions: addition',
+  fraction_subtraction: 'Fractions: subtraction',
+  fraction_conversion: 'Fractions: mixed numbers',
+  fraction_to_decimal: 'Fractions: to decimal',
+  fraction_simplify: 'Fractions: simplify',
+};
+function nice(tag) { return NICE[tag] || tag; }
+
 function fmtTime(ts) {
   const d = new Date(ts);
   // Render in SGT regardless of viewer's locale
@@ -304,7 +327,7 @@ function renderSummary({ overall, byMode }) {
   `;
   for (const m of (byMode || []).slice(0, 4)) {
     const mp = m.n > 0 ? Math.round(100 * m.got / m.n) : 0;
-    html += `<div class="stat ${pctClass(mp)}"><div class="label">${m.mode}</div><div class="value">${mp}%</div><div class="sub">${m.got}/${m.n}</div></div>`;
+    html += `<div class="stat ${pctClass(mp)}"><div class="label">${escapeHtml(nice(m.mode))}</div><div class="value">${mp}%</div><div class="sub">${m.got}/${m.n}</div></div>`;
   }
   el.innerHTML = html;
 }
@@ -323,7 +346,7 @@ function renderTopics(byTopic) {
     const cls = pctClass(pct);
     return `
       <div style="display: flex; align-items: center; gap: 10px; font-size: 12px;">
-        <div style="width: 150px; font-weight: 600; color: #4a5568; text-align: right;">${escapeHtml(t.topic)}</div>
+        <div style="width: 210px; font-weight: 600; color: #4a5568; text-align: right;" title="${escapeHtml(t.topic)}">${escapeHtml(nice(t.topic))}</div>
         <div style="flex: 1; background: white; border-radius: 4px; height: 16px; overflow: hidden;">
           <div style="width: ${pct}%; height: 100%; background: ${barColor[cls]};"></div>
         </div>
@@ -338,7 +361,7 @@ function populateModeFilter(byMode, selected) {
   const sel = document.getElementById('modeFilter');
   const cur = sel.value;
   sel.innerHTML = '<option value="">All modes</option>' +
-    [...knownModes].sort().map(m => `<option value="${m}" ${m === selected ? 'selected' : ''}>${m}</option>`).join('');
+    [...knownModes].sort().map(m => `<option value="${m}" ${m === selected ? 'selected' : ''}>${escapeHtml(nice(m))}</option>`).join('');
   if (cur && knownModes.has(cur)) sel.value = cur;
 }
 
@@ -352,7 +375,7 @@ function renderAttempts(rows) {
   tbody.innerHTML = rows.map(r => `
     <tr class="${r.correct ? '' : 'wrong'}">
       <td class="ts-cell">${fmtTime(r.ts)}</td>
-      <td><span class="mode-chip">${r.mode}${r.fraction_sub ? ' / ' + r.fraction_sub : ''}${r.topic && r.topic !== r.mode ? ' / ' + escapeHtml(r.topic) : ''}</span>${r.daily ? ' <span title="Daily Session">⭐</span>' : ''}</td>
+      <td><span class="mode-chip" title="${escapeHtml(r.topic || r.mode)}">${escapeHtml(r.topic && r.topic !== r.mode ? nice(r.topic) : nice(r.mode))}</span>${r.daily ? ' <span title="Daily Session">⭐</span>' : ''}</td>
       <td class="problem">${escapeHtml(r.problem_text)}</td>
       <td class="problem">${escapeHtml(r.expected)}</td>
       <td class="problem">${escapeHtml(r.given)}</td>
