@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math Practice — Parent Review</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh; padding: 20px; color: #1a202c;
+  }
+  .container {
+    max-width: 1100px; margin: 0 auto; background: white;
+    border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); overflow: hidden;
+  }
+  header {
+    padding: 18px 22px; background: #2d3748; color: white;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .right { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+  header a, header button {
+    color: #cbd5e0; background: transparent; border: 1px solid #4a5568;
+    padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    text-decoration: none;
+  }
+  header a:hover, header button:hover { background: #4a5568; color: white; }
+
+  .pin-gate {
+    padding: 60px 30px; text-align: center;
+  }
+  .pin-gate input {
+    font-size: 28px; letter-spacing: 0.5em; text-align: center;
+    border: 2px solid #cbd5e0; border-radius: 12px; padding: 14px 20px;
+    width: 220px; outline: none;
+  }
+  .pin-gate input:focus { border-color: #667eea; }
+  .pin-gate input.error { border-color: #e53e3e; }
+  .pin-gate button {
+    display: block; margin: 18px auto 0; background: #667eea; color: white;
+    border: none; padding: 12px 36px; border-radius: 10px; font-size: 15px;
+    font-weight: 600; cursor: pointer;
+  }
+  .pin-gate button:hover { background: #5a6fd8; }
+  .pin-error { color: #e53e3e; margin-top: 10px; font-size: 14px; min-height: 1.2em; }
+
+  .controls {
+    padding: 14px 22px; background: #f7fafc; border-bottom: 1px solid #e2e8f0;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .controls label { font-size: 13px; color: #4a5568; }
+  .controls select, .controls input {
+    padding: 6px 10px; border: 1px solid #cbd5e0; border-radius: 6px;
+    font-size: 13px; background: white;
+  }
+  .controls .count { margin-left: auto; font-size: 12px; color: #718096; }
+
+  .summary {
+    padding: 18px 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; background: #edf2f7;
+  }
+  .stat {
+    background: white; padding: 12px 14px; border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .stat .label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat .value { font-size: 22px; font-weight: 700; color: #2d3748; margin-top: 2px; }
+  .stat .sub { font-size: 11px; color: #718096; margin-top: 2px; }
+  .stat.good .value { color: #2f855a; }
+  .stat.warn .value { color: #c05621; }
+  .stat.bad .value { color: #c53030; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; padding: 10px 14px; background: #2d3748; color: white;
+    font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+    position: sticky; top: 0;
+  }
+  tbody td { padding: 9px 14px; border-bottom: 1px solid #edf2f7; vertical-align: top; }
+  tbody tr:hover { background: #f7fafc; }
+  tr.wrong { background: #fff5f5; }
+  tr.wrong:hover { background: #fed7d7; }
+  .mode-chip {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; background: #edf2f7;
+    color: #4a5568; font-size: 11px; font-weight: 600;
+  }
+  .verdict {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  }
+  .verdict.ok { background: #c6f6d5; color: #22543d; }
+  .verdict.x { background: #fed7d7; color: #742a2a; }
+  .problem { font-family: 'Courier New', monospace; }
+  .empty { padding: 40px; text-align: center; color: #a0aec0; }
+  .ts-cell { white-space: nowrap; color: #718096; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🧮 Math Practice — Parent Review</h1>
+    <div class="right">
+      <a href="/">← Practice</a>
+      <button id="logoutBtn" style="display:none">Log out</button>
+    </div>
+  </header>
+
+  <div id="pinGate" class="pin-gate" style="display:none">
+    <div style="margin-bottom: 12px; color: #4a5568;">Enter parent PIN</div>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="----" autocomplete="off" />
+    <button id="pinBtn">Enter</button>
+    <div id="pinError" class="pin-error"></div>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <div class="controls">
+      <label>Window:
+        <select id="windowSelect">
+          <option value="86400000">Last 24 h</option>
+          <option value="259200000">Last 3 days</option>
+          <option value="604800000" selected>Last 7 days</option>
+          <option value="2592000000">Last 30 days</option>
+          <option value="0">All time</option>
+        </select>
+      </label>
+      <label>Mode:
+        <select id="modeFilter">
+          <option value="">All modes</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="onlyWrong"> Only wrong</label>
+      <label>Show:
+        <select id="limitSelect">
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="500">500</option>
+        </select>
+      </label>
+      <span class="count" id="countLabel"></span>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div style="max-height: 60vh; overflow-y: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>When (SGT)</th>
+            <th>Mode</th>
+            <th>Problem</th>
+            <th>Expected</th>
+            <th>Caleb's answer</th>
+            <th>Result</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SGT = -480; // Asia/Singapore is UTC+8 → offset in minutes for "UTC + 480 min"
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  // Render in SGT regardless of viewer's locale
+  const sgt = new Date(d.getTime() + 8 * 3600 * 1000);
+  const pad = n => String(n).padStart(2, '0');
+  return `${sgt.getUTCFullYear()}-${pad(sgt.getUTCMonth()+1)}-${pad(sgt.getUTCDate())} ${pad(sgt.getUTCHours())}:${pad(sgt.getUTCMinutes())}`;
+}
+
+function fmtMs(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return ms + 'ms';
+  return (ms/1000).toFixed(1) + 's';
+}
+
+function pctClass(pct) {
+  if (pct >= 80) return 'good';
+  if (pct >= 60) return 'warn';
+  return 'bad';
+}
+
+async function checkAuth() {
+  const r = await fetch('/api/parent/me');
+  const d = await r.json();
+  if (d.authed) {
+    document.getElementById('pinGate').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('logoutBtn').style.display = 'inline-block';
+    refresh();
+  } else {
+    document.getElementById('pinGate').style.display = 'block';
+    document.getElementById('pinInput').focus();
+  }
+}
+
+document.getElementById('pinBtn').onclick = submitPin;
+document.getElementById('pinInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitPin();
+});
+
+async function submitPin() {
+  const pin = document.getElementById('pinInput').value;
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinInput').classList.remove('error');
+  const r = await fetch('/api/parent/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin }),
+  });
+  if (r.ok) {
+    checkAuth();
+  } else {
+    document.getElementById('pinInput').classList.add('error');
+    document.getElementById('pinError').textContent = 'Wrong PIN';
+  }
+}
+
+document.getElementById('logoutBtn').onclick = async () => {
+  await fetch('/api/parent/logout', { method: 'POST' });
+  location.reload();
+};
+
+document.getElementById('windowSelect').onchange = refresh;
+document.getElementById('modeFilter').onchange = refresh;
+document.getElementById('onlyWrong').onchange = refresh;
+document.getElementById('limitSelect').onchange = refresh;
+
+async function refresh() {
+  const win = parseInt(document.getElementById('windowSelect').value) || 0;
+  const since = win === 0 ? 0 : Date.now() - win;
+  const mode = document.getElementById('modeFilter').value;
+  const onlyWrong = document.getElementById('onlyWrong').checked;
+  const limit = document.getElementById('limitSelect').value;
+
+  // Summary first
+  const sumR = await fetch('/api/parent/summary?since=' + since);
+  if (!sumR.ok) {
+    document.getElementById('summary').innerHTML = '<div class="empty">Lost auth — refresh the page.</div>';
+    return;
+  }
+  const sum = await sumR.json();
+  renderSummary(sum);
+  populateModeFilter(sum.byMode, mode);
+
+  // Attempts
+  const params = new URLSearchParams();
+  params.set('since', since);
+  params.set('limit', limit);
+  if (mode) params.set('mode', mode);
+  if (onlyWrong) params.set('only', 'wrong');
+  const r = await fetch('/api/parent/attempts?' + params.toString());
+  const d = await r.json();
+  renderAttempts(d.attempts);
+}
+
+function renderSummary({ overall, byMode }) {
+  const el = document.getElementById('summary');
+  const n = overall?.n || 0;
+  const got = overall?.got || 0;
+  const pct = n > 0 ? Math.round(100 * got / n) : 0;
+  let html = `
+    <div class="stat"><div class="label">Attempts</div><div class="value">${n}</div></div>
+    <div class="stat ${n > 0 ? pctClass(pct) : ''}"><div class="label">Overall accuracy</div><div class="value">${n > 0 ? pct + '%' : '—'}</div><div class="sub">${got} of ${n} correct</div></div>
+  `;
+  for (const m of (byMode || []).slice(0, 4)) {
+    const mp = m.n > 0 ? Math.round(100 * m.got / m.n) : 0;
+    html += `<div class="stat ${pctClass(mp)}"><div class="label">${m.mode}</div><div class="value">${mp}%</div><div class="sub">${m.got}/${m.n}</div></div>`;
+  }
+  el.innerHTML = html;
+}
+
+let knownModes = new Set();
+function populateModeFilter(byMode, selected) {
+  for (const m of byMode || []) knownModes.add(m.mode);
+  const sel = document.getElementById('modeFilter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All modes</option>' +
+    [...knownModes].sort().map(m => `<option value="${m}" ${m === selected ? 'selected' : ''}>${m}</option>`).join('');
+  if (cur && knownModes.has(cur)) sel.value = cur;
+}
+
+function renderAttempts(rows) {
+  const tbody = document.getElementById('rows');
+  document.getElementById('countLabel').textContent = `${rows.length} attempt${rows.length === 1 ? '' : 's'} shown`;
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No attempts in this window/filter.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr class="${r.correct ? '' : 'wrong'}">
+      <td class="ts-cell">${fmtTime(r.ts)}</td>
+      <td><span class="mode-chip">${r.mode}${r.fraction_sub ? ' / ' + r.fraction_sub : ''}</span></td>
+      <td class="problem">${escapeHtml(r.problem_text)}</td>
+      <td class="problem">${escapeHtml(r.expected)}</td>
+      <td class="problem">${escapeHtml(r.given)}</td>
+      <td><span class="verdict ${r.correct ? 'ok' : 'x'}">${r.correct ? '✓' : '✗'}</span></td>
+      <td class="ts-cell">${fmtMs(r.ms_taken)}</td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+checkAuth();
+</script>
+</body>
+</html>

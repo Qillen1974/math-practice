@@ -386,6 +386,29 @@
         let currentMode = 'decimal';
         let currentProblem = {};
         let score = { correct: 0, total: 0 };
+        let problemStartedAt = 0;
+
+        // Pass 2: fire-and-forget POST so a parent dashboard can later review.
+        // Never blocks Caleb's UX; failures are silent on purpose.
+        function logAttempt(given, correct) {
+            try {
+                const payload = {
+                    mode: currentMode,
+                    fraction_sub: currentMode === 'fractions' ? fractionSub : null,
+                    problem_text: (document.getElementById('problem').textContent || '').trim(),
+                    expected: String((currentProblem && currentProblem.answer !== undefined) ? currentProblem.answer : ''),
+                    given: String(given),
+                    correct: !!correct,
+                    ms_taken: problemStartedAt > 0 ? (Date.now() - problemStartedAt) : null,
+                };
+                fetch('/api/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    keepalive: true,
+                }).catch(() => {});
+            } catch (e) { /* never crash on log */ }
+        }
         let animationTimeout = null;
         let fractionSub = 'addition';
         
@@ -1135,6 +1158,7 @@
 
         function generateProblem() {
             const difficulty = document.getElementById('difficulty').value;
+            problemStartedAt = Date.now();
             
             if (currentMode === 'word') {
                 currentProblem = generateWordProblem();
@@ -1248,6 +1272,7 @@
                     }
                 });
             }
+            logAttempt(selected, selected === currentProblem.answer);
             
             updateScore();
             document.getElementById('nextBtn').style.display = 'block';
@@ -1808,6 +1833,7 @@
                 feedback.className = 'feedback incorrect';
                 playSound('incorrect');
             }
+            logAttempt(rawAnswer, correct);
             
             feedback.style.display = 'block';
             document.getElementById('nextBtn').style.display = 'block';
