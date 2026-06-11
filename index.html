@@ -1125,7 +1125,10 @@
                 denominator: denominator,
                 whole: whole,
                 remainder: remainder,
-                answer: `${whole} ${remainder}/${denominator}`,
+                answer: (() => {
+                    const g = gcd(remainder, denominator);
+                    return `${whole} ${remainder / g}/${denominator / g}`;
+                })(),
                 type: 'fractions',
                 subType: 'conversion'
             };
@@ -1377,7 +1380,7 @@
                     const vehicle = vehicles[getRandomInt(0, vehicles.length - 1)];
                     const count = getRandomInt(3, 10);
                     return {
-                        question: wordProblemTemplates[2].template.replace('{vehicle}', vehicle.name).replace('{wheels}', vehicle.wheels).replace('{count}', count),
+                        question: wordProblemTemplates[2].template.replaceAll('{vehicle}', vehicle.name).replace('{wheels}', vehicle.wheels).replace('{count}', count),
                         answer: vehicle.wheels * count,
                         options: generateOptions(vehicle.wheels * count, vehicle.wheels, vehicle.wheels * count + 15)
                     };
@@ -2218,7 +2221,9 @@
                         const w = parseInt(mixedMatch[1]);
                         const r = parseInt(mixedMatch[2]);
                         const d = parseInt(mixedMatch[3]);
-                        correct = (w === currentProblem.whole && r === currentProblem.remainder && d === currentProblem.denominator);
+                        // Accept any equivalent fraction part (e.g. both "1 2/4" and "1 1/2" for 6/4)
+                        correct = (w === currentProblem.whole && d > 0 && r < d &&
+                                   r * currentProblem.denominator === currentProblem.remainder * d);
                     } else {
                         correct = false;
                     }
