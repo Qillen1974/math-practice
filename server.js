@@ -78,6 +78,21 @@ app.post('/api/log', (req, res) => {
   }
 });
 
+// Aggregate accuracy stats for Daily Session adaptive weighting (no auth:
+// exposes only counts/accuracy, no problem content). Last 30 days.
+app.get('/api/topic-stats', (_req, res) => {
+  const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const byMode = db.prepare(
+    `SELECT mode, COUNT(*) AS n, SUM(correct) AS got
+     FROM attempts WHERE ts >= ? GROUP BY mode`
+  ).all(since);
+  const byTopic = db.prepare(
+    `SELECT COALESCE(topic, mode) AS topic, COUNT(*) AS n, SUM(correct) AS got
+     FROM attempts WHERE ts >= ? GROUP BY COALESCE(topic, mode)`
+  ).all(since);
+  res.json({ byMode, byTopic });
+});
+
 // ---------- Parent side: PIN-gated ----------
 
 function isParent(req) {

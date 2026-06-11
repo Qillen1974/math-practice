@@ -324,6 +324,50 @@
             background: #f7fafc;
             border-color: #a0aec0;
         }
+
+        .session-progress {
+            padding: 12px 20px;
+            background: #fffaf0;
+            border-bottom: 2px solid #fbd38d;
+            font-weight: 700;
+            color: #744210;
+            text-align: center;
+            font-size: 1.05rem;
+        }
+
+        .summary-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 8px 0;
+            font-size: 1rem;
+        }
+
+        .summary-label {
+            flex: 0 0 160px;
+            text-align: right;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .summary-bar-track {
+            flex: 1;
+            background: #e2e8f0;
+            border-radius: 8px;
+            height: 22px;
+            overflow: hidden;
+        }
+
+        .summary-bar-fill {
+            height: 100%;
+            border-radius: 8px;
+        }
+
+        .summary-score {
+            flex: 0 0 56px;
+            font-weight: 700;
+            color: #4a5568;
+        }
     </style>
 </head>
 <body>
@@ -342,7 +386,10 @@
             <button class="mode-btn" onclick="setMode('decimal_multiply')">🔢 Decimal ×</button>
             <button class="mode-btn" onclick="setMode('order_ops')">🔢 Order of Ops</button>
             <button class="mode-btn" onclick="setMode('fractions')">🍕 Fractions</button>
+            <button class="mode-btn" id="dailyBtn" onclick="startDailySession()">⭐ Daily Session</button>
         </div>
+
+        <div class="session-progress" id="sessionProgress" style="display: none;"></div>
 
         <div class="sub-selector" id="fractionSubSelector" style="display: none;">
             <button class="sub-btn active" onclick="setFractionSub('addition')">➕ Addition</button>
@@ -368,8 +415,8 @@
                 <div class="multiple-choice" id="multipleChoice" style="display: none;"></div>
             </div>
             
-            <button class="show-animation-btn" onclick="showAnimation()">👁️ Watch How to Solve</button>
-            <button class="show-animation-btn" onclick="generateProblem()" style="background: #48bb78; margin-left: 10px;">🔄 New Problem</button>
+            <button class="show-animation-btn" id="watchBtn" onclick="showAnimation()">👁️ Watch How to Solve</button>
+            <button class="show-animation-btn" id="newProblemBtn" onclick="generateProblem()" style="background: #48bb78; margin-left: 10px;">🔄 New Problem</button>
             
             <div class="animation-area" id="animationArea"></div>
             
@@ -417,8 +464,141 @@
         }
         let animationTimeout = null;
         let fractionSub = 'addition';
-        
+
+        // ---------- Daily Session: mixed assessment across all topics ----------
+        const SESSION_LENGTH = 20;
+        const SESSION_MODES = ['word', 'decimal', 'decimal_align', 'multiply', 'divide', 'decimal_multiply', 'order_ops', 'fractions'];
+        const FRACTION_SUBS = ['addition', 'subtraction', 'conversion', 'to_decimal', 'simplify'];
+        const MODE_LABELS = {
+            word: '📝 Word Problems', decimal: '➕➖ Decimals', decimal_align: '📐 Line It Up',
+            multiply: '✖️ Multiplication', divide: '➗ Division', decimal_multiply: '🔢 Decimal ×',
+            order_ops: '🔢 Order of Ops', fractions: '🍕 Fractions'
+        };
+        let dailySession = { active: false, plan: [], index: 0, answered: false, results: [] };
+
+        function weightedPick(weights) {
+            const total = weights.reduce((a, b) => a + b, 0);
+            let r = Math.random() * total;
+            for (let i = 0; i < weights.length; i++) {
+                r -= weights[i];
+                if (r <= 0) return i;
+            }
+            return weights.length - 1;
+        }
+
+        function shuffleInPlace(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = getRandomInt(0, i);
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function pickFractionSub(stats) {
+            // Weight fraction sub-types toward the weakest, smoothed so all stay possible
+            const weights = FRACTION_SUBS.map(sub => {
+                const row = stats && stats.byTopic && stats.byTopic.find(t => t.topic === 'fraction_' + sub);
+                if (!row || row.n === 0) return 0.5;
+                return Math.max(0.1, 1 - (row.got + 1) / (row.n + 2));
+            });
+            return FRACTION_SUBS[weightedPick(weights)];
+        }
+
+        function buildSessionPlan(stats) {
+            // 2 of every mode = full coverage (16), + 4 extra weighted toward weak modes
+            const plan = [];
+            SESSION_MODES.forEach(m => plan.push(m, m));
+            const weights = SESSION_MODES.map(m => {
+                const row = stats && stats.byMode && stats.byMode.find(r => r.mode === m);
+                if (!row || row.n === 0) return 0.5;
+                return Math.max(0.1, 1 - (row.got + 1) / (row.n + 2));
+            });
+            while (plan.length < SESSION_LENGTH) {
+                plan.push(SESSION_MODES[weightedPick(weights)]);
+            }
+            shuffleInPlace(plan);
+            return plan.map(m => ({ mode: m, sub: m === 'fractions' ? pickFractionSub(stats) : null }));
+        }
+
+        async function startDailySession() {
+            let stats = null;
+            try {
+                const r = await fetch('/api/topic-stats');
+                if (r.ok) stats = await r.json();
+            } catch (e) { /* offline-safe: fall back to even mix */ }
+
+            dailySession = { active: true, plan: buildSessionPlan(stats), index: 0, answered: false, results: [] };
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('dailyBtn').classList.add('active');
+            document.getElementById('fractionSubSelector').style.display = 'none';
+            document.getElementById('newProblemBtn').style.display = 'none';
+            document.getElementById('sessionProgress').style.display = 'block';
+            generateProblem();
+        }
+
+        function endDailySession() {
+            dailySession.active = false;
+            document.getElementById('sessionProgress').style.display = 'none';
+            document.getElementById('newProblemBtn').style.display = '';
+            document.getElementById('nextBtn').textContent = 'Next Problem ➡️';
+        }
+
+        function updateSessionProgress() {
+            document.getElementById('sessionProgress').textContent =
+                `⭐ Question ${dailySession.index + 1} of ${dailySession.plan.length}`;
+        }
+
+        function recordSessionResult(correct) {
+            if (!dailySession.active || dailySession.answered) return;
+            dailySession.results.push({ mode: currentMode, correct: !!correct });
+            dailySession.answered = true;
+            const isLast = dailySession.index >= dailySession.plan.length - 1;
+            document.getElementById('nextBtn').textContent = isLast ? 'See Results 🏁' : 'Next Question ➡️';
+        }
+
+        function showSessionSummary() {
+            const results = dailySession.results;
+            const got = results.filter(r => r.correct).length;
+            endDailySession();
+            document.getElementById('sessionProgress').textContent = '⭐ Session Complete!';
+            document.getElementById('sessionProgress').style.display = 'block';
+
+            document.getElementById('problem').textContent = '🎓 Daily Session Complete!';
+            document.getElementById('hint').textContent = `You got ${got} out of ${results.length}!`;
+            document.getElementById('multipleChoice').style.display = 'none';
+            document.getElementById('inputArea').style.display = 'none';
+            document.getElementById('feedback').style.display = 'none';
+            document.getElementById('nextBtn').style.display = 'none';
+            document.getElementById('watchBtn').style.display = 'none';
+
+            const byMode = {};
+            results.forEach(r => {
+                if (!byMode[r.mode]) byMode[r.mode] = { n: 0, got: 0 };
+                byMode[r.mode].n++;
+                if (r.correct) byMode[r.mode].got++;
+            });
+            const rows = Object.keys(byMode)
+                .sort((a, b) => (byMode[a].got / byMode[a].n) - (byMode[b].got / byMode[b].n))
+                .map(m => {
+                    const s = byMode[m];
+                    const pct = Math.round((s.got / s.n) * 100);
+                    const color = pct >= 80 ? '#48bb78' : pct >= 50 ? '#ed8936' : '#e53e3e';
+                    return `<div class="summary-row">
+                        <div class="summary-label">${MODE_LABELS[m] || m}</div>
+                        <div class="summary-bar-track"><div class="summary-bar-fill" style="width:${pct}%;background:${color};"></div></div>
+                        <div class="summary-score">${s.got}/${s.n}</div>
+                    </div>`;
+                }).join('');
+            document.getElementById('animationArea').innerHTML =
+                `<div style="padding:10px 0;">${rows}</div>
+                 <div style="text-align:center;margin-top:14px;">
+                     <button class="show-animation-btn" onclick="startDailySession()">⭐ Start Another Session</button>
+                 </div>`;
+        }
+        // ---------- end Daily Session ----------
+
         function setMode(mode) {
+            if (dailySession.active) endDailySession();
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -1270,9 +1450,25 @@
         }
 
         function generateProblem() {
+            if (dailySession.active) {
+                if (dailySession.answered) {
+                    dailySession.index++;
+                    dailySession.answered = false;
+                }
+                if (dailySession.index >= dailySession.plan.length) {
+                    showSessionSummary();
+                    return;
+                }
+                const q = dailySession.plan[dailySession.index];
+                currentMode = q.mode;
+                if (q.sub) fractionSub = q.sub;
+                updateSessionProgress();
+            }
+            document.getElementById('watchBtn').style.display = '';
+
             const difficulty = document.getElementById('difficulty').value;
             problemStartedAt = Date.now();
-            
+
             if (currentMode === 'word') {
                 currentProblem = generateWordProblem();
             } else if (currentMode === 'decimal') {
@@ -1390,9 +1586,14 @@
                 });
             }
             logAttempt(selected, selected === currentProblem.answer);
-            
+            recordSessionResult(selected === currentProblem.answer);
+
             updateScore();
             document.getElementById('nextBtn').style.display = 'block';
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = `Score: ${score.correct} / ${score.total}`;
         }
         
         function showAnimation() {
@@ -2032,11 +2233,11 @@
                 playSound('incorrect');
             }
             logAttempt(rawAnswer, correct);
-            
+            recordSessionResult(correct);
+
             feedback.style.display = 'block';
             document.getElementById('nextBtn').style.display = 'block';
-            document.getElementById('score').textContent = 
-                `Score: ${score.correct} / ${score.total}`;
+            updateScore();
         }
         
         function playSound(type) {
