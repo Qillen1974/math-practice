@@ -86,6 +86,14 @@
     display: inline-block; padding: 2px 8px; border-radius: 4px; background: #edf2f7;
     color: #4a5568; font-size: 11px; font-weight: 600;
   }
+  .diff-chip {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; text-transform: capitalize;
+  }
+  .diff-chip.easy { background: #c6f6d5; color: #22543d; }
+  .diff-chip.medium { background: #feebc8; color: #7b341e; }
+  .diff-chip.hard { background: #fed7d7; color: #742a2a; }
+  .diff-chip.none { background: #edf2f7; color: #a0aec0; }
   .verdict {
     display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
   }
@@ -158,6 +166,7 @@
           <tr>
             <th>When (SGT)</th>
             <th>Mode</th>
+            <th>Difficulty</th>
             <th>Problem</th>
             <th>Expected</th>
             <th>Caleb's answer</th>
@@ -377,13 +386,14 @@ function renderAttempts(rows) {
   const tbody = document.getElementById('rows');
   document.getElementById('countLabel').textContent = `${rows.length} attempt${rows.length === 1 ? '' : 's'} shown`;
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No attempts in this window/filter.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">No attempts in this window/filter.</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(r => `
     <tr class="${r.correct ? '' : 'wrong'}">
       <td class="ts-cell">${fmtTime(r.ts)}</td>
       <td><span class="mode-chip" title="${escapeHtml(r.topic || r.mode)}">${escapeHtml(r.topic && r.topic !== r.mode ? nice(r.topic) : nice(r.mode))}</span>${r.daily ? ' <span title="Daily Session">⭐</span>' : ''}</td>
+      <td><span class="diff-chip ${r.difficulty || 'none'}">${r.difficulty || '—'}</span></td>
       <td class="problem">${escapeHtml(r.problem_text)}</td>
       <td class="problem">${escapeHtml(r.expected)}</td>
       <td class="problem">${escapeHtml(r.given)}</td>

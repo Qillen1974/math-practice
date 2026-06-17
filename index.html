@@ -466,6 +466,7 @@
     <script>
         let currentMode = 'decimal';
         let currentProblem = {};
+        let currentDifficulty = null;
         let score = { correct: 0, total: 0 };
         let problemStartedAt = 0;
 
@@ -484,6 +485,7 @@
                     correct: !!correct,
                     ms_taken: problemStartedAt > 0 ? (Date.now() - problemStartedAt) : null,
                     daily: dailySession.active,
+                    difficulty: currentDifficulty,
                 };
                 fetch('/api/log', {
                     method: 'POST',
@@ -1801,6 +1803,8 @@
             document.getElementById('watchBtn').style.display = '';
 
             const difficulty = document.getElementById('difficulty').value;
+            // Word problems have a single generator with no difficulty tiers.
+            currentDifficulty = currentMode === 'word' ? null : difficulty;
             problemStartedAt = Date.now();
 
             if (currentMode === 'word') {

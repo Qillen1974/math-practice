@@ -47,9 +47,13 @@ db.exec(`CREATE INDEX IF NOT EXISTS idx_attempts_topic ON attempts(topic)`);
 const hasDaily = db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('attempts') WHERE name = 'daily'`).get().n > 0;
 if (!hasDaily) db.exec(`ALTER TABLE attempts ADD COLUMN daily INTEGER NOT NULL DEFAULT 0`);
 
+// Migration: difficulty tier (easy/medium/hard; null for word problems + pre-existing rows)
+const hasDifficulty = db.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('attempts') WHERE name = 'difficulty'`).get().n > 0;
+if (!hasDifficulty) db.exec(`ALTER TABLE attempts ADD COLUMN difficulty TEXT`);
+
 const insertAttempt = db.prepare(
-  `INSERT INTO attempts (ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken, daily)
-   VALUES (@ts, @mode, @fraction_sub, @topic, @problem_text, @expected, @given, @correct, @ms_taken, @daily)`
+  `INSERT INTO attempts (ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken, daily, difficulty)
+   VALUES (@ts, @mode, @fraction_sub, @topic, @problem_text, @expected, @given, @correct, @ms_taken, @daily, @difficulty)`
 );
 
 const app = express();
@@ -76,6 +80,7 @@ app.post('/api/log', (req, res) => {
       correct: b.correct ? 1 : 0,
       ms_taken: Number.isFinite(b.ms_taken) ? Math.max(0, Math.min(600000, b.ms_taken | 0)) : null,
       daily: b.daily ? 1 : 0,
+      difficulty: ['easy', 'medium', 'hard'].includes(b.difficulty) ? b.difficulty : null,
     });
     res.json({ ok: true });
   } catch (e) {
@@ -140,7 +145,7 @@ app.get('/api/parent/attempts', requireParent, (req, res) => {
   const onlyWrong = req.query.only === 'wrong';
   const onlyDaily = req.query.daily === '1';
   const topic = req.query.topic && typeof req.query.topic === 'string' ? req.query.topic : null;
-  let sql = 'SELECT id, ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken, daily FROM attempts WHERE ts >= ?';
+  let sql = 'SELECT id, ts, mode, fraction_sub, topic, problem_text, expected, given, correct, ms_taken, daily, difficulty FROM attempts WHERE ts >= ?';
   const args = [since];
   if (until > 0) { sql += ' AND ts < ?'; args.push(until); }
   if (mode) { sql += ' AND mode = ?'; args.push(mode); }
