@@ -686,30 +686,51 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
         
+        // True iff this sum/difference forces at least one carry (+) or borrow (−).
+        // Works on integer cents so floating point never lies to us.
+        function decimalNeedsRegroup(aCents, bCents, operator) {
+            if (operator === '+') {
+                while (aCents > 0 || bCents > 0) {
+                    if ((aCents % 10) + (bCents % 10) >= 10) return true;
+                    aCents = Math.floor(aCents / 10); bCents = Math.floor(bCents / 10);
+                }
+                return false;
+            }
+            while (bCents > 0) {
+                if ((aCents % 10) < (bCents % 10)) return true;
+                aCents = Math.floor(aCents / 10); bCents = Math.floor(bCents / 10);
+            }
+            return false;
+        }
+
         function generateDecimalProblem(difficulty) {
             let num1, num2, operator;
-            
-            if (difficulty === 'easy') {
-                num1 = getRandomInt(1, 9) + getRandomInt(1, 9) / 10;
-                num2 = getRandomInt(1, 9) + getRandomInt(1, 9) / 10;
+            // Medium/hard deliberately require regrouping — Caleb's recurring slip is
+            // carry/borrow across the decimal, not decimals he can add column-clean.
+            const forceRegroup = difficulty === 'medium' || difficulty === 'hard';
+
+            for (let tries = 0; tries < 20; tries++) {
+                if (difficulty === 'easy') {
+                    num1 = getRandomInt(1, 9) + getRandomInt(1, 9) / 10;
+                    num2 = getRandomInt(1, 9) + getRandomInt(1, 9) / 10;
+                } else if (difficulty === 'medium') {
+                    num1 = getRandomInt(10, 99) + getRandomInt(1, 99) / 100;
+                    num2 = getRandomInt(10, 99) + getRandomInt(1, 99) / 100;
+                } else {
+                    num1 = getRandomInt(100, 999) + getRandomInt(1, 99) / 100;
+                    num2 = getRandomInt(100, 999) + getRandomInt(1, 99) / 100;
+                }
                 operator = Math.random() > 0.5 ? '+' : '-';
-            } else if (difficulty === 'medium') {
-                num1 = getRandomInt(10, 99) + getRandomInt(1, 99) / 100;
-                num2 = getRandomInt(10, 99) + getRandomInt(1, 99) / 100;
-                operator = Math.random() > 0.5 ? '+' : '-';
-            } else {
-                num1 = getRandomInt(100, 999) + getRandomInt(1, 99) / 100;
-                num2 = getRandomInt(100, 999) + getRandomInt(1, 99) / 100;
-                operator = Math.random() > 0.5 ? '+' : '-';
+                // Ensure positive result for subtraction
+                if (operator === '-' && num1 < num2) {
+                    [num1, num2] = [num2, num1];
+                }
+                const aCents = Math.round(num1 * 100), bCents = Math.round(num2 * 100);
+                if (!forceRegroup || decimalNeedsRegroup(aCents, bCents, operator)) break;
             }
-            
-            // Ensure positive result for subtraction
-            if (operator === '-' && num1 < num2) {
-                [num1, num2] = [num2, num1];
-            }
-            
+
             const answer = operator === '+' ? num1 + num2 : num1 - num2;
-            
+
             return {
                 num1: parseFloat(num1.toFixed(2)),
                 num2: parseFloat(num2.toFixed(2)),
@@ -1675,10 +1696,17 @@
             }
 
             if (sub === 'time_elapsed') {
-                // opening hours / how long (30-min steps keep it WPN-realistic)
-                const openM = getRandomInt(12, 22) * 30;            // 6:00 – 11:00 am
-                const closeM = getRandomInt(26, 44) * 30;           // 1:00 – 10:00 pm
-                const elapsed = closeM - openM;
+                // opening hours / how long (30-min steps keep it WPN-realistic).
+                // Bias medium/hard toward longer noon-crossing spans — Caleb handles
+                // short spans (10:30am→1:30pm) but slips on big ones (10am→8:30pm).
+                const minSpan = difficulty === 'hard' ? 360 : difficulty === 'medium' ? 240 : 60;
+                let openM, closeM, elapsed;
+                for (let tries = 0; tries < 20; tries++) {
+                    openM = getRandomInt(12, 22) * 30;              // 6:00 – 11:00 am
+                    closeM = getRandomInt(26, 44) * 30;             // 1:00 – 10:00 pm
+                    elapsed = closeM - openM;
+                    if (elapsed >= minSpan) break;
+                }
                 const templates = [
                     `The library opens at ${fmtClock(openM)} and closes at ${fmtClock(closeM)}. How long is it open?`,
                     `The hawker stall opens at ${fmtClock(openM)} and closes at ${fmtClock(closeM)}. How long is it open each day?`,
