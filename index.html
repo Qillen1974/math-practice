@@ -2538,7 +2538,7 @@
                         correct = false;
                     }
                 } else if (currentProblem.subType === 'to_decimal') {
-                    const userVal = parseFloat(rawAnswer);
+                    const userVal = parseFloat(rawAnswer.replace(/\s+/g, ''));
                     if (isNaN(userVal)) {
                         correct = false;
                     } else if (currentProblem.isRepeating) {
@@ -2590,8 +2590,10 @@
                     }
                 }
             } else {
-                // Accept "$6.70" as well as "6.70" in money mode
-                const userAnswer = parseFloat(rawAnswer.replace(/^\$/, ''));
+                // Accept "$6.70" as well as "6.70" in money mode.
+                // Strip ALL internal whitespace first: iPad double-space autocorrect
+                // inserts ". " so Caleb's "24. 3" must parse as 24.3, not 24.
+                const userAnswer = parseFloat(rawAnswer.replace(/^\$/, '').replace(/\s+/g, ''));
                 if (isNaN(userAnswer)) {
                     feedback.textContent = 'Please enter a number! 📝';
                     feedback.className = 'feedback incorrect';
