@@ -396,10 +396,43 @@
     </style>
 </head>
 <body>
+    <!-- Public-mode overlays: hidden and inert on private (Caleb) instances -->
+    <div id="authOverlay" style="display:none; position:fixed; inset:0; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); z-index:1000; overflow:auto;">
+        <div style="max-width:400px; margin:6vh auto; background:#fff; border-radius:20px; padding:28px; box-shadow:0 20px 40px rgba(0,0,0,.3);">
+            <h2 style="margin:0 0 6px; color:#2d3748;">🔢 Math Practice</h2>
+            <p style="color:#718096; margin:0 0 18px; font-size:14px;">Friendly, step-by-step numeracy practice built for special-needs learners.</p>
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <button id="authTabIn" onclick="setAuthTab('in')" style="flex:1; padding:10px; border-radius:10px; border:2px solid #667eea; background:#667eea; color:#fff; font-weight:600; cursor:pointer;">Sign in</button>
+                <button id="authTabUp" onclick="setAuthTab('up')" style="flex:1; padding:10px; border-radius:10px; border:2px solid #e2e8f0; background:#fff; color:#4a5568; font-weight:600; cursor:pointer;">Create account</button>
+            </div>
+            <input id="authEmail" type="email" placeholder="Email" autocomplete="email" style="width:100%; box-sizing:border-box; padding:12px; margin-bottom:10px; border:2px solid #e2e8f0; border-radius:10px; font-size:15px;">
+            <input id="authPassword" type="password" placeholder="Password (8+ characters)" autocomplete="current-password" style="width:100%; box-sizing:border-box; padding:12px; margin-bottom:10px; border:2px solid #e2e8f0; border-radius:10px; font-size:15px;">
+            <input id="authChild" type="text" placeholder="Child's first name (optional)" style="display:none; width:100%; box-sizing:border-box; padding:12px; margin-bottom:10px; border:2px solid #e2e8f0; border-radius:10px; font-size:15px;">
+            <button onclick="submitAuth()" style="width:100%; padding:13px; border:none; border-radius:10px; background:#48bb78; color:#fff; font-size:16px; font-weight:700; cursor:pointer;">Let's go! 🚀</button>
+            <div id="authError" style="color:#e53e3e; font-size:14px; min-height:1.3em; margin-top:10px; text-align:center;"></div>
+        </div>
+    </div>
+    <div id="capOverlay" style="display:none; position:fixed; inset:0; background:rgba(45,55,72,.85); z-index:1000; overflow:auto;">
+        <div style="max-width:420px; margin:12vh auto; background:#fff; border-radius:20px; padding:30px; text-align:center; box-shadow:0 20px 40px rgba(0,0,0,.3);">
+            <div style="font-size:44px;">🎉</div>
+            <h2 style="margin:8px 0; color:#2d3748;">Great practising today!</h2>
+            <p style="color:#4a5568;">You've used all of today's free questions. Come back tomorrow for more!</p>
+            <div style="background:#f7fafc; border:2px solid #e2e8f0; border-radius:12px; padding:14px; margin:16px 0; text-align:left;">
+                <b style="color:#2d3748;">Want unlimited practice?</b>
+                <p style="color:#718096; font-size:14px; margin:6px 0 0;">The Parent Plan adds unlimited daily practice, progress reports and coaching hints. Join the waitlist and we'll let you know when it's ready.</p>
+            </div>
+            <button id="waitlistBtn" onclick="joinWaitlist()" style="width:100%; padding:13px; border:none; border-radius:10px; background:#667eea; color:#fff; font-size:15px; font-weight:700; cursor:pointer;">Join the waitlist 📬</button>
+            <button onclick="document.getElementById('capOverlay').style.display='none'" style="margin-top:10px; background:none; border:none; color:#a0aec0; font-size:13px; cursor:pointer;">Close</button>
+        </div>
+    </div>
     <div class="container">
         <div class="header">
             <h1>🔢 Math Practice</h1>
             <p>Learn step by step!</p>
+            <div id="accountBar" style="display:none; font-size:13px; margin-top:6px;">
+                <span id="quotaBadge" style="background:rgba(255,255,255,.25); border-radius:999px; padding:3px 12px;"></span>
+                <a href="#" onclick="signOut(); return false;" style="color:inherit; opacity:.7; margin-left:10px;">Sign out</a>
+            </div>
         </div>
         
         <div class="mode-selector">
@@ -492,9 +525,104 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                     keepalive: true,
-                }).catch(() => {});
+                }).then(onLogResponse).catch(() => {});
             } catch (e) { /* never crash on log */ }
         }
+
+        // ---------- Public-mode accounts + free daily cap (no-ops on private instances) ----------
+        let appMode = 'private';
+        let authTab = 'in';
+
+        async function onLogResponse(r) {
+            if (appMode !== 'public') return;
+            if (r.status === 429) { showCap(); return; }
+            if (r.status === 401) { document.getElementById('authOverlay').style.display = 'block'; return; }
+            try {
+                const d = await r.json();
+                if (typeof d.remaining === 'number') {
+                    updateQuotaBadge(d.remaining);
+                    // Let the child see the feedback on their last answer before the overlay
+                    if (d.remaining <= 0) setTimeout(showCap, 2500);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function updateQuotaBadge(remaining) {
+            const badge = document.getElementById('quotaBadge');
+            badge.textContent = remaining > 0 ? `⚡ ${remaining} free questions left today` : '🌙 Done for today!';
+        }
+
+        function showCap() {
+            document.getElementById('capOverlay').style.display = 'block';
+        }
+
+        function setAuthTab(tab) {
+            authTab = tab;
+            const tabIn = document.getElementById('authTabIn');
+            const tabUp = document.getElementById('authTabUp');
+            const on = 'flex:1; padding:10px; border-radius:10px; border:2px solid #667eea; background:#667eea; color:#fff; font-weight:600; cursor:pointer;';
+            const off = 'flex:1; padding:10px; border-radius:10px; border:2px solid #e2e8f0; background:#fff; color:#4a5568; font-weight:600; cursor:pointer;';
+            tabIn.style.cssText = tab === 'in' ? on : off;
+            tabUp.style.cssText = tab === 'up' ? on : off;
+            document.getElementById('authChild').style.display = tab === 'up' ? 'block' : 'none';
+            document.getElementById('authPassword').autocomplete = tab === 'up' ? 'new-password' : 'current-password';
+            document.getElementById('authError').textContent = '';
+        }
+
+        async function submitAuth() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const errEl = document.getElementById('authError');
+            errEl.textContent = '';
+            const body = { email, password };
+            if (authTab === 'up') body.child_name = document.getElementById('authChild').value.trim();
+            try {
+                const r = await fetch(authTab === 'up' ? '/api/signup' : '/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (r.ok) { location.reload(); return; }
+                const d = await r.json().catch(() => ({}));
+                errEl.textContent = {
+                    bad_email: 'Please enter a valid email address',
+                    weak_password: 'Password needs at least 8 characters',
+                    email_taken: 'That email already has an account — try Sign in',
+                    bad_credentials: 'Wrong email or password',
+                    too_many_attempts: 'Too many tries — please wait a few minutes',
+                }[d.error] || 'Something went wrong — please try again';
+            } catch (e) {
+                errEl.textContent = 'Connection problem — please try again';
+            }
+        }
+
+        async function signOut() {
+            try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+            location.reload();
+        }
+
+        async function joinWaitlist() {
+            const btn = document.getElementById('waitlistBtn');
+            try {
+                const r = await fetch('/api/waitlist', { method: 'POST' });
+                if (r.ok) { btn.textContent = "You're on the list ✓"; btn.disabled = true; }
+            } catch (e) { /* leave button as-is */ }
+        }
+
+        async function initAccount() {
+            let cfg = null;
+            try { cfg = await (await fetch('/api/config')).json(); } catch (e) { return; }
+            if (!cfg || cfg.mode !== 'public') return;
+            appMode = 'public';
+            let me = null;
+            try { me = await (await fetch('/api/me')).json(); } catch (e) { return; }
+            if (!me.authed) { document.getElementById('authOverlay').style.display = 'block'; return; }
+            document.getElementById('accountBar').style.display = 'block';
+            updateQuotaBadge(me.quota.remaining);
+            if (me.quota.remaining <= 0) showCap();
+        }
+        initAccount();
+
         let animationTimeout = null;
         let fractionSub = 'addition';
 

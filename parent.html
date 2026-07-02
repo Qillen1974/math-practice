@@ -115,7 +115,8 @@
   </header>
 
   <div id="pinGate" class="pin-gate" style="display:none">
-    <div style="margin-bottom: 12px; color: #4a5568;">Enter parent PIN</div>
+    <div id="gateLabel" style="margin-bottom: 12px; color: #4a5568;">Enter parent PIN</div>
+    <input id="emailInput" type="email" placeholder="Email" autocomplete="email" style="display:none; margin-bottom:8px;" />
     <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="----" autocomplete="off" />
     <button id="pinBtn">Enter</button>
     <div id="pinError" class="pin-error"></div>
@@ -234,7 +235,13 @@ function pctClass(pct) {
   return 'bad';
 }
 
+let appMode = 'private';
+
 async function checkAuth() {
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    appMode = cfg.mode === 'public' ? 'public' : 'private';
+  } catch (e) { /* default private */ }
   const r = await fetch('/api/parent/me');
   const d = await r.json();
   if (d.authed) {
@@ -243,8 +250,17 @@ async function checkAuth() {
     document.getElementById('logoutBtn').style.display = 'inline-block';
     refresh();
   } else {
+    if (appMode === 'public') {
+      document.getElementById('gateLabel').textContent = 'Parent sign in';
+      document.getElementById('emailInput').style.display = 'block';
+      const pw = document.getElementById('pinInput');
+      pw.placeholder = 'Password';
+      pw.maxLength = 128;
+      pw.removeAttribute('inputmode');
+      pw.autocomplete = 'current-password';
+    }
     document.getElementById('pinGate').style.display = 'block';
-    document.getElementById('pinInput').focus();
+    document.getElementById(appMode === 'public' ? 'emailInput' : 'pinInput').focus();
   }
 }
 
@@ -254,19 +270,22 @@ document.getElementById('pinInput').addEventListener('keydown', e => {
 });
 
 async function submitPin() {
-  const pin = document.getElementById('pinInput').value;
+  const secret = document.getElementById('pinInput').value;
   document.getElementById('pinError').textContent = '';
   document.getElementById('pinInput').classList.remove('error');
+  const body = appMode === 'public'
+    ? { email: document.getElementById('emailInput').value.trim(), password: secret }
+    : { pin: secret };
   const r = await fetch('/api/parent/auth', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin }),
+    body: JSON.stringify(body),
   });
   if (r.ok) {
     checkAuth();
   } else {
     document.getElementById('pinInput').classList.add('error');
-    document.getElementById('pinError').textContent = 'Wrong PIN';
+    document.getElementById('pinError').textContent = appMode === 'public' ? 'Wrong email or password' : 'Wrong PIN';
   }
 }
 
